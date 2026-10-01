@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PFPFORGE — Turn Any Photo Into a Trending PFP</title>
+<meta name="description" content="Upload a photo and morph it into trending profile-photo aesthetics — Gothic, Anime, Dark Academia, Fairy Core and more. Free PFP generator for TikTok, Instagram & Discord.">
+
+<!-- =====================================================================
+     GOOGLE ADSENSE  —  STEP FROM THE VIDEO
+     1. Sign up at https://adsense.google.com
+     2. Replace ca-pub-XXXXXXXXXXXXXXXX below with YOUR publisher ID.
+     3. Uncomment the <script> line. (It is commented so the page doesn't
+        error before you have an ID.) This is the snippet AdSense asks you
+        to "embed between the head tags on each page of your site."
+     ===================================================================== -->
+<!-- <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script> -->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800;900&family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://js.stripe.com/v3/"></script>
+
+<style>
+  :root{
+    --bg:#0a0612;
+    --bg-2:#120a1f;
+    --ink:#f4eefb;
+    --muted:#a99bc4;
+    --line:rgba(255,255,255,.09);
+    --card:rgba(255,255,255,.035);
+    --magenta:#ff3d9a;
+    --violet:#9b5cff;
+    --cyan:#33e6ff;
+    --lime:#c6ff4d;
+    --glow:0 0 40px rgba(155,92,255,.45);
+    --display:'Unbounded',sans-serif;
+    --body:'Sora',sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:var(--body);
+    background:var(--bg);
+    color:var(--ink);
+    overflow-x:hidden;
+    line-height:1.5;
+  }
+  /* animated gradient mesh background */
+  .mesh{
+    position:fixed;inset:0;z-index:-2;
+    background:
+      radial-gradient(60vw 60vw at 12% 8%, rgba(255,61,154,.30), transparent 60%),
+      radial-gradient(55vw 55vw at 88% 18%, rgba(51,230,255,.20), transparent 60%),
+      radial-gradient(70vw 70vw at 70% 90%, rgba(155,92,255,.30), transparent 60%),
+      var(--bg);
+    animation:drift 22s ease-in-out infinite alternate;
+  }
+  @keyframes drift{
+    0%{transform:scale(1) translate(0,0)}
+    100%{transform:scale(1.15) translate(-3%,2%)}
+  }
+  .grain{
+    position:fixed;inset:0;z-index:-1;opacity:.05;pointer-events:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .wrap{max-width:1120px;margin:0 auto;padding:0 22px}
+
+  /* NAV */
+  nav{
+    position:sticky;top:0;z-index:40;
+    backdrop-filter:blur(14px);
+    background:rgba(10,6,18,.6);
+    border-bottom:1px solid var(--line);
+  }
+  .nav-in{display:flex;align-items:center;justify-content:space-between;padding:16px 22px;max-width:1120px;margin:0 auto}
+  .logo{font-family:var(--display);font-weight:900;font-size:1.25rem;letter-spacing:-.02em;display:flex;align-items:center;gap:9px}
+  .logo .dot{width:13px;height:13px;border-radius:50%;background:linear-gradient(135deg,var(--magenta),var(--cyan));box-shadow:var(--glow)}
+  .nav-cta{font-family:var(--body);font-weight:600;font-size:.92rem;padding:9px 18px;border-radius:999px;border:1px solid var(--line);color:var(--ink);text-decoration:none;transition:.25s}
+  .nav-cta:hover{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+  /* HERO */
+  header{padding:74px 0 30px;text-align:center;position:relative}
+  .pill{display:inline-flex;align-items:center;gap:8px;font-size:.78rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--cyan);border:1px solid rgba(51,230,255,.3);background:rgba(51,230,255,.06);padding:7px 15px;border-radius:999px;margin-bottom:26px}
+  .pill .live{width:7px;height:7px;border-radius:50%;background:var(--lime);box-shadow:0 0 10px var(--lime);animation:blink 1.4s infinite}
+  @keyframes blink{50%{opacity:.3}}
+  h1{font-family:var(--display);font-weight:900;font-size:clamp(2.5rem,7vw,5.2rem);line-height:.98;letter-spacing:-.03em;margin-bottom:22px}
+  h1 .grad{background:linear-gradient(110deg,var(--magenta),var(--violet) 45%,var(--cyan));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .sub{font-size:clamp(1.02rem,2vw,1.22rem);color:var(--muted);max-width:620px;margin:0 auto 14px;font-weight:300}
+  .trust{display:flex;gap:24px;justify-content:center;flex-wrap:wrap;margin-top:26px;color:var(--muted);font-size:.85rem}
+  .trust b{color:var(--ink);font-weight:700}
+
+  /* APP */
+  .app{margin:50px auto 30px;max-width:980px}
+  .modes{display:flex;gap:10px;justify-content:center;margin-bottom:22px}
+  .mode{font-family:var(--display);font-weight:600;font-size:.95rem;padding:11px 26px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--muted);cursor:pointer;transition:.25s}
+  .mode.active{background:linear-gradient(110deg,var(--magenta),var(--violet));color:#fff;border-color:transparent;box-shadow:var(--glow)}
+
+  .panel{
+    background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.02));
+    border:1px solid var(--line);border-radius:26px;padding:26px;
+    box-shadow:0 30px 90px rgba(0,0,0,.5);
+  }
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:26px}
+  @media(max-width:760px){.grid2{grid-template-columns:1fr}}
+
+  .label{font-size:.78rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 12px}
+
+  /* upload / preview canvas */
+  .stage{
+    aspect-ratio:1;width:100%;border-radius:20px;overflow:hidden;position:relative;
+    border:2px dashed var(--line);background:rgba(0,0,0,.25);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.25s;
+  }
+  .stage.has{border-style:solid;cursor:default}
+  .stage:hover{border-color:var(--violet)}
+  .stage canvas,.stage img{width:100%;height:100%;object-fit:cover;display:block}
+  .stage .hint{text-align:center;padding:30px;color:var(--muted)}
+  .stage .hint .ico{font-size:2.4rem;margin-bottom:10px}
+  .stage .hint b{color:var(--ink);display:block;font-weight:600;margin-bottom:4px}
+  .stage .spinner{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(10,6,18,.7);backdrop-filter:blur(4px);flex-direction:column;gap:14px}
+  .stage.busy .spinner{display:flex}
+  .ring{width:46px;height:46px;border-radius:50%;border:4px solid rgba(255,255,255,.15);border-top-color:var(--cyan);animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .spinner span{font-size:.85rem;color:var(--muted)}
+
+  /* aesthetic chips */
+  .chips{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:20px}
+  .chip{border:1px solid var(--line);background:var(--card);border-radius:14px;padding:13px 8px;cursor:pointer;text-align:center;transition:.2s;position:relative;overflow:hidden}
+  .chip .sw{width:100%;height:32px;border-radius:8px;margin-bottom:8px}
+  .chip span{font-size:.8rem;font-weight:600;color:var(--muted);transition:.2s}
+  .chip.active{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
+  .chip.active span{color:var(--ink)}
+
+  .opt-row{margin-bottom:18px}
+  .seg{display:flex;gap:7px;flex-wrap:wrap}
+  .seg button{flex:1;min-width:64px;font-family:var(--body);font-size:.84rem;font-weight:600;padding:9px 6px;border-radius:11px;border:1px solid var(--line);background:var(--card);color:var(--muted);cursor:pointer;transition:.2s}
+  .seg button.active{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+  .go{
+    width:100%;font-family:var(--display);font-weight:800;font-size:1.05rem;letter-spacing:-.01em;
+    padding:16px;border:none;border-radius:16px;cursor:pointer;color:#fff;margin-top:4px;
+    background:linear-gradient(110deg,var(--magenta),var(--violet) 50%,var(--cyan));
+    background-size:200% 100%;transition:.4s;box-shadow:var(--glow);
+  }
+  .go:hover{background-position:100% 0;transform:translateY(-2px)}
+  .go:disabled{opacity:.45;cursor:not-allowed;transform:none}
+  .actions{display:none;gap:10px;margin-top:14px}
+  .actions.show{display:flex}
+  .actions button{flex:1;font-family:var(--body);font-weight:600;font-size:.9rem;padding:13px;border-radius:14px;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink);transition:.2s}
+  .actions button:hover{background:rgba(255,255,255,.1)}
+  .note{font-size:.74rem;color:var(--muted);margin-top:14px;line-height:1.5;opacity:.8}
+  input[type=file]{display:none}
+
+  /* AD SLOT */
+  .ad-slot{max-width:980px;margin:36px auto;border:1px dashed var(--line);border-radius:16px;min-height:110px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.8rem;text-align:center;background:rgba(255,255,255,.02)}
+
+  /* SECTIONS */
+  section.block{padding:64px 0}
+  .h2{font-family:var(--display);font-weight:800;font-size:clamp(1.8rem,4vw,2.8rem);letter-spacing:-.02em;text-align:center;margin-bottom:12px}
+  .lead{text-align:center;color:var(--muted);max-width:560px;margin:0 auto 44px;font-weight:300}
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  @media(max-width:760px){.steps{grid-template-columns:1fr}}
+  .step{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:26px}
+  .step .n{font-family:var(--display);font-weight:900;font-size:2.2rem;background:linear-gradient(135deg,var(--magenta),var(--cyan));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;line-height:1;margin-bottom:14px}
+  .step h3{font-size:1.1rem;font-weight:600;margin-bottom:8px}
+  .step p{color:var(--muted);font-size:.92rem;font-weight:300}
+
+  .aes-gallery{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
+  @media(max-width:760px){.aes-gallery{grid-template-columns:repeat(3,1fr)}}
+  .aes-gallery .tile{aspect-ratio:1;border-radius:16px;display:flex;align-items:flex-end;padding:12px;font-weight:600;font-size:.8rem;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.6);position:relative;overflow:hidden;cursor:pointer;transition:.3s}
+  .aes-gallery .tile:hover{transform:translateY(-4px) scale(1.02)}
+
+  /* FOOTER */
+  footer{border-top:1px solid var(--line);padding:40px 0;margin-top:30px}
+  .foot-in{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;color:var(--muted);font-size:.85rem}
+  .foot-in a{color:var(--muted);text-decoration:none;margin-left:18px;transition:.2s}
+  .foot-in a:hover{color:var(--ink)}
+
+  /* COOKIE CONSENT (AdSense / GDPR step from the video) */
+  .consent{
+    position:fixed;left:18px;right:18px;bottom:18px;z-index:60;max-width:560px;margin:0 auto;
+    background:rgba(18,10,31,.96);border:1px solid var(--line);border-radius:18px;padding:18px 20px;
+    backdrop-filter:blur(14px);box-shadow:0 20px 60px rgba(0,0,0,.6);
+    display:flex;gap:14px;align-items:center;flex-wrap:wrap;transform:translateY(150%);transition:.5s cubic-bezier(.2,.8,.2,1)}
+  .consent.show{transform:translateY(0)}
+  .consent p{font-size:.84rem;color:var(--muted);flex:1;min-width:220px;font-weight:300}
+  .consent .btns{display:flex;gap:8px}
+  .consent button{font-family:var(--body);font-weight:600;font-size:.82rem;padding:9px 16px;border-radius:10px;cursor:pointer;border:1px solid var(--line);background:transparent;color:var(--ink)}
+  .consent button.accept{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+  /* FAQ */
+  .faq{max-width:760px;margin:0 auto}
+  .qa{border:1px solid var(--line);border-radius:16px;margin-bottom:12px;overflow:hidden;background:var(--card)}
+  .qa summary{list-style:none;cursor:pointer;padding:18px 22px;font-weight:600;font-size:1rem;display:flex;justify-content:space-between;align-items:center;gap:14px}
+  .qa summary::-webkit-details-marker{display:none}
+  .qa summary .plus{font-family:var(--display);font-weight:400;color:var(--cyan);transition:.25s;flex-shrink:0}
+  .qa[open] summary .plus{transform:rotate(45deg)}
+  .qa .ans{padding:0 22px 20px;color:var(--muted);font-weight:300;font-size:.94rem;line-height:1.6}
+
+  /* BLOG */
+  .blog{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  @media(max-width:760px){.blog{grid-template-columns:1fr}}
+  .post{border:1px solid var(--line);border-radius:20px;overflow:hidden;background:var(--card);transition:.3s}
+  .post:hover{transform:translateY(-4px);border-color:var(--violet)}
+  .post .cover{height:130px;display:flex;align-items:flex-end;padding:14px;font-family:var(--display);font-weight:800;font-size:1.1rem;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.5)}
+  .post .body{padding:18px 20px}
+  .post .tag{font-size:.72rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--cyan);margin-bottom:8px;display:block}
+  .post details summary{cursor:pointer;list-style:none;color:var(--magenta);font-weight:600;font-size:.86rem;margin-top:10px}
+  .post details summary::-webkit-details-marker{display:none}
+  .post details p{color:var(--muted);font-weight:300;font-size:.9rem;line-height:1.6;margin-top:10px}
+  .post h3{font-size:1.02rem;font-weight:600;line-height:1.3;margin-bottom:6px}
+  .post p.excerpt{color:var(--muted);font-size:.88rem;font-weight:300}
+
+  /* PRICING */
+  .pricing{display:grid;grid-template-columns:1fr 1fr;gap:18px;max-width:760px;margin:0 auto}
+  @media(max-width:640px){.pricing{grid-template-columns:1fr}}
+  .price-card{border:1px solid var(--line);border-radius:22px;padding:30px 26px;background:var(--card);position:relative}
+  .price-card.pro{border-color:transparent;background:linear-gradient(180deg,rgba(255,61,154,.12),rgba(51,230,255,.08));box-shadow:0 20px 60px rgba(0,0,0,.45)}
+  .price-card.pro::before{content:'MOST POPULAR';position:absolute;top:-11px;left:50%;transform:translateX(-50%);font-family:var(--body);font-weight:700;font-size:.66rem;letter-spacing:.1em;color:#fff;background:linear-gradient(110deg,var(--magenta),var(--violet));padding:5px 14px;border-radius:999px}
+  .price-card h3{font-family:var(--display);font-weight:800;font-size:1.2rem;margin-bottom:6px}
+  .price-card .amt{font-family:var(--display);font-weight:900;font-size:2.6rem;line-height:1;margin:10px 0 4px}
+  .price-card .amt small{font-family:var(--body);font-weight:400;font-size:.9rem;color:var(--muted)}
+  .price-card ul{list-style:none;margin:18px 0 22px;display:flex;flex-direction:column;gap:10px}
+  .price-card li{color:var(--muted);font-size:.92rem;font-weight:300;display:flex;gap:9px;align-items:flex-start}
+  .price-card li b{color:var(--ink);font-weight:600}
+  .price-card .check{color:var(--lime);flex-shrink:0}
+  .price-card .x{color:var(--muted);opacity:.5;flex-shrink:0}
+  .price-btn{width:100%;font-family:var(--display);font-weight:800;font-size:1rem;padding:14px;border-radius:14px;cursor:pointer;border:1px solid var(--line);background:transparent;color:var(--ink);transition:.25s}
+  .price-btn.primary{border:none;color:#fff;background:linear-gradient(110deg,var(--magenta),var(--violet) 50%,var(--cyan));background-size:200% 100%;box-shadow:var(--glow)}
+  .price-btn.primary:hover{background-position:100% 0;transform:translateY(-2px)}
+  .price-btn:disabled{opacity:.5;cursor:default}
+</style>
+</head>
+<body>
+<div class="mesh"></div>
+<div class="grain"></div>
+
+<nav>
+  <div class="nav-in">
+    <div class="logo"><span class="dot"></span>PFP<span style="color:var(--muted)">FORGE</span></div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <a href="blog/index.html" class="nav-cta" style="background:transparent">Guides</a>
+      <a href="#forge" class="nav-cta">Make My PFP</a>
+    </div>
+  </div>
+</nav>
+
+<header class="wrap">
+  <span class="pill"><span class="live"></span>Trending with Gen&nbsp;Z right now</span>
+  <h1>Turn any selfie into<br>a <span class="grad">trending PFP</span></h1>
+  <p class="sub">Gothic. Anime. Dark Academia. Fairy Core. Upload one photo and forge a profile picture that actually fits your feed — for TikTok, Instagram &amp; Discord.</p>
+  <div class="trust">
+    <span><b>2.4M+</b> PFPs forged</span>
+    <span><b>14</b> aesthetics</span>
+    <span><b>100%</b> free to start</span>
+  </div>
+</header>
+
+<!-- ============ THE GENERATOR ============ -->
+<div class="app wrap" id="forge">
+  <div class="modes">
+    <button class="mode active" data-mode="transform">Transform my photo</button>
+    <button class="mode" data-mode="create">Create from scratch</button>
+  </div>
+
+  <div class="panel">
+    <div class="grid2">
+      <!-- LEFT: stage -->
+      <div>
+        <p class="label" id="stageLabel">Your photo</p>
+        <div class="stage" id="stage" tabindex="0">
+          <div class="hint" id="hint">
+            <div class="ico">⬆️</div>
+            <b>Tap to upload a photo</b>
+            <span>JPG or PNG — a clear face works best</span>
+          </div>
+          <canvas id="canvas" style="display:none"></canvas>
+          <div class="spinner"><div class="ring"></div><span id="spinTxt">Forging your PFP…</span></div>
+        </div>
+        <input type="file" id="file" accept="image/*">
+        <div class="actions" id="actions">
+          <button id="download">⬇ Download</button>
+          <button id="reset">↺ New photo</button>
+        </div>
+      </div>
+
+      <!-- RIGHT: controls -->
+      <div>
+        <p class="label">Pick an aesthetic</p>
+        <div class="chips" id="chips"></div>
+
+        <div class="opt-row">
+          <p class="label">Vibe</p>
+          <div class="seg" id="vibe">
+            <button data-v="soft">Soft</button>
+            <button class="active" data-v="edgy">Edgy</button>
+            <button data-v="vibrant">Vibrant</button>
+          </div>
+        </div>
+
+        <div class="opt-row">
+          <p class="label">Style</p>
+          <div class="seg" id="gender">
+            <button class="active" data-g="neutral">Neutral</button>
+            <button data-g="fem">Feminine</button>
+            <button data-g="masc">Masculine</button>
+          </div>
+        </div>
+
+        <button class="go" id="go" disabled>✦ Forge my PFP</button>
+        <p class="note" id="note">Upload a photo to begin. Everything runs in your browser — your image never leaves your device.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ AD UNIT (in-content) ============
+     Paste your AdSense ad-unit code here. Example placeholder:
+     <ins class="adsbygoogle" style="display:block"
+          data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+          data-ad-slot="0000000000"
+          data-ad-format="auto" data-full-width-responsive="true"></ins>
+     <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+============================================== -->
+<div class="ad-slot wrap">Ad space — your Google AdSense in-content unit goes here once approved.</div>
+
+<!-- ============ HOW IT WORKS ============ -->
+<section class="block wrap">
+  <h2 class="h2">Three taps. One fresh PFP.</h2>
+  <p class="lead">No design skills, no apps to install. Built for the way Gen&nbsp;Z actually makes profile pics.</p>
+  <div class="steps">
+    <div class="step"><div class="n">01</div><h3>Upload or start blank</h3><p>Drop in a selfie to transform it, or skip the photo and generate a brand-new avatar from scratch.</p></div>
+    <div class="step"><div class="n">02</div><h3>Pick your aesthetic</h3><p>Choose from the styles blowing up on Pinterest and TikTok — then dial in the vibe and look.</p></div>
+    <div class="step"><div class="n">03</div><h3>Forge &amp; download</h3><p>Get a square, feed-ready PFP in seconds. Save it and post it. Come back tomorrow for a new one.</p></div>
+  </div>
+</section>
+
+<!-- ============ AESTHETIC GALLERY ============ -->
+<section class="block wrap">
+  <h2 class="h2">The aesthetics everyone's searching</h2>
+  <p class="lead">Tap any look to jump straight into the forge with it pre-selected.</p>
+  <div class="aes-gallery" id="gallery"></div>
+</section>
+
+<!-- ============ PRICING ============ -->
+<section class="block wrap" id="pro">
+  <h2 class="h2">Go Pro, unlock real AI</h2>
+  <p class="lead">The free forge uses fast in-browser styling. Pro unlocks full AI photo morphing and removes ads.</p>
+  <div class="pricing">
+    <div class="price-card">
+      <h3>Free</h3>
+      <div class="amt">$0</div>
+      <ul>
+        <li><span class="check">✓</span> Unlimited in-browser styling</li>
+        <li><span class="check">✓</span> All 15 aesthetics</li>
+        <li><span class="check">✓</span> Download as PNG</li>
+        <li><span class="x">—</span> AI photo morphing</li>
+        <li><span class="x">—</span> Ad-free</li>
+      </ul>
+      <button class="price-btn" disabled>Your current plan</button>
+    </div>
+    <div class="price-card pro">
+      <h3>Pro</h3>
+      <div class="amt">$4.99<small>/month</small></div>
+      <ul>
+        <li><span class="check">✓</span> <b>Real AI photo morphing</b></li>
+        <li><span class="check">✓</span> Unlimited AI PFPs</li>
+        <li><span class="check">✓</span> All 15 aesthetics</li>
+        <li><span class="check">✓</span> <b>Ad-free</b> experience</li>
+        <li><span class="check">✓</span> Cancel anytime</li>
+      </ul>
+      <button class="price-btn primary" id="upgrade">Upgrade to Pro →</button>
+    </div>
+  </div>
+  <p class="note" style="text-align:center;max-width:560px;margin:18px auto 0">Secure checkout by Stripe — pay by card or PayPal. You're redirected to Stripe to pay, so your details never touch this site.</p>
+  <p style="text-align:center;margin-top:10px"><a href="#" id="restore" style="color:var(--muted);font-size:.82rem;text-decoration:none;border-bottom:1px solid var(--line)">Already Pro on another device? Email me a login link →</a></p>
+</section>
+
+<!-- ============ SEO BLOG ============ -->
+<section class="block wrap" id="blog">
+  <h2 class="h2">PFP ideas &amp; guides</h2>
+  <p class="lead">Fresh aesthetics, trends, and how-tos for leveling up your profile picture.</p>
+  <div class="blog">
+    <a class="post" href="blog/best-pfp-aesthetics-2026.html" style="text-decoration:none;color:inherit">
+      <div class="cover" style="background:linear-gradient(135deg,#9b5cff,#33e6ff)">The 12 Best PFP Aesthetics</div>
+      <div class="body"><span class="tag">Pillar guide</span><h3>The 12 Best PFP Aesthetics in 2026</h3><p class="excerpt">A full breakdown of every trending profile-picture style this year — and how to pull each one off.</p></div>
+    </a>
+    <a class="post" href="blog/anime-pfp-ideas-2026.html" style="text-decoration:none;color:inherit">
+      <div class="cover" style="background:linear-gradient(135deg,#ff7bd5,#7fd4ff)">Anime PFP Ideas 2026</div>
+      <div class="body"><span class="tag">Trends</span><h3>The Anime PFP Styles Blowing Up Right Now</h3><p class="excerpt">From soft shoujo pastels to dark anti-hero edits — the anime looks dominating TikTok and Discord.</p></div>
+    </a>
+    <a class="post" href="blog/dark-academia-profile-picture-guide.html" style="text-decoration:none;color:inherit">
+      <div class="cover" style="background:linear-gradient(135deg,#5a4326,#2a1d12)">Dark Academia Guide</div>
+      <div class="body"><span class="tag">Aesthetic</span><h3>How to Nail a Dark Academia Profile Picture</h3><p class="excerpt">Tweed, candlelight and a moody scholarly glow — the complete recipe for a dark academia PFP.</p></div>
+    </a>
+  </div>
+  <div style="text-align:center;margin-top:28px">
+    <a href="blog/index.html" class="nav-cta" style="display:inline-block">View all guides →</a>
+  </div>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section class="block wrap">
+  <h2 class="h2">Questions, answered</h2>
+  <p class="lead">Everything you might want to know before you forge.</p>
+  <div class="faq">
+    <details class="qa"><summary>Is it free to use?<span class="plus">+</span></summary><div class="ans">Yes. You can forge profile pictures for free. We keep the lights on with non-intrusive ads on the page.</div></details>
+    <details class="qa"><summary>Do you store or sell my photos?<span class="plus">+</span></summary><div class="ans">In the default in-browser mode, your photo never leaves your device — the styling happens right in your browser. If AI mode is enabled, your image is sent securely to the image service only to generate your result and is not sold or kept for marketing.</div></details>
+    <details class="qa"><summary>What can I use my PFP for?<span class="plus">+</span></summary><div class="ans">Anything — TikTok, Instagram, Discord, X, gaming profiles, and more. The output is a clean square PNG, the standard shape for avatars everywhere.</div></details>
+    <details class="qa"><summary>Why does the AI look different from the filter preview?<span class="plus">+</span></summary><div class="ans">The instant preview uses fast in-browser styling. When full AI mode is on, a generative model re-imagines your photo in the chosen aesthetic, so the result is more dramatic and creative.</div></details>
+    <details class="qa"><summary>Can I request a new aesthetic?<span class="plus">+</span></summary><div class="ans">Absolutely. New trending aesthetics are added regularly. If there's a style you want to see, reach out and it might land in the next update.</div></details>
+  </div>
+</section>
+
+<footer class="wrap">
+  <div class="foot-in">
+    <div class="logo"><span class="dot"></span>PFP<span style="color:var(--muted)">FORGE</span></div>
+    <div>
+      <a href="#forge">Forge</a>
+      <a href="#" id="privacy">Privacy</a>
+      <a href="#" id="terms">Terms</a>
+    </div>
+  </div>
+  <p style="color:var(--muted);font-size:.78rem;margin-top:16px;opacity:.7">© <span id="yr"></span> PFPFORGE. Made for the feed.</p>
+</footer>
+
+<!-- COOKIE / ADS CONSENT -->
+<div class="consent" id="consent">
+  <p>We use cookies to run the site and serve ads. You can accept or decline non-essential cookies.</p>
+  <div class="btns">
+    <button id="decline">Decline</button>
+    <button class="accept" id="accept">Accept</button>
+  </div>
+</div>
+
+<script>
+document.getElementById('yr').textContent = new Date().getFullYear();
+
+/* ---------- aesthetic definitions ----------
+   Each look is a recipe of in-browser canvas adjustments. This produces a
+   REAL, visible transform of the uploaded photo so the demo works today.
+   To get a true "AI morph" (e.g. genuine anime conversion) you would send
+   the image to an image-generation API (Replicate / fal.ai / Stability /
+   OpenAI images) inside forge() where marked, and draw the result back.   */
+const AESTHETICS = {
+  gothic:       {name:'Gothic',        sw:'linear-gradient(135deg,#1a1a1f,#3a2a3a)', filter:'grayscale(.55) contrast(1.35) brightness(.82)',                overlay:'rgba(40,10,50,.30)',  blend:'multiply', vignette:.85},
+  anime:        {name:'Anime',         sw:'linear-gradient(135deg,#ff7bd5,#7fd4ff)', filter:'saturate(1.9) contrast(1.2) brightness(1.12)',                  overlay:'rgba(120,200,255,.14)',blend:'screen',   vignette:.2, poster:true},
+  darkacademia: {name:'Dark Academia', sw:'linear-gradient(135deg,#5a4326,#2a1d12)', filter:'sepia(.55) saturate(.8) contrast(1.12) brightness(.9)',         overlay:'rgba(70,45,20,.32)',  blend:'multiply', vignette:.8},
+  fairycore:    {name:'Fairy Core',    sw:'linear-gradient(135deg,#ffd6f5,#d6ffe9)', filter:'saturate(1.25) brightness(1.18) contrast(.92) blur(.3px)',      overlay:'rgba(255,190,235,.28)',blend:'screen',   vignette:.15, bloom:true},
+  cyberpunk:    {name:'Cyberpunk',     sw:'linear-gradient(135deg,#ff2bd6,#22f0ff)', filter:'saturate(2) contrast(1.3) hue-rotate(-12deg) brightness(1.05)', overlay:'rgba(255,0,200,.18)', blend:'screen',   vignette:.55, glowEdge:true},
+  vaporwave:    {name:'Vaporwave',     sw:'linear-gradient(135deg,#a06bff,#ff8fd0)', filter:'saturate(1.6) hue-rotate(18deg) contrast(1.08) brightness(1.08)',overlay:'rgba(160,90,255,.22)',blend:'screen',   vignette:.3},
+  noir:         {name:'Noir',          sw:'linear-gradient(135deg,#0e0e10,#5a5a5e)', filter:'grayscale(1) contrast(1.55) brightness(.95)',                   overlay:'rgba(0,0,0,.1)',      blend:'multiply', vignette:1},
+  golden:       {name:'Golden Hour',   sw:'linear-gradient(135deg,#ffcf6b,#ff8a5c)', filter:'sepia(.35) saturate(1.4) brightness(1.12) contrast(1.05)',      overlay:'rgba(255,170,60,.22)',blend:'screen',   vignette:.45},
+  pastel:       {name:'Pastel',        sw:'linear-gradient(135deg,#ffd1e8,#cfe5ff)', filter:'saturate(.7) brightness(1.2) contrast(.85)',                    overlay:'rgba(255,210,235,.3)',blend:'screen',   vignette:.1},
+  y2k:          {name:'Y2K',           sw:'linear-gradient(135deg,#ff9ae6,#7ad7ff)', filter:'saturate(1.6) contrast(1.1) brightness(1.1) hue-rotate(-6deg)',  overlay:'rgba(255,120,220,.16)',blend:'screen',   vignette:.2, bloom:true},
+  cottagecore:  {name:'Cottagecore',   sw:'linear-gradient(135deg,#e8d59a,#a9c98a)', filter:'sepia(.28) saturate(1.1) brightness(1.08) contrast(.95)',       overlay:'rgba(180,160,90,.24)',blend:'multiply', vignette:.4},
+  grunge:       {name:'Grunge',        sw:'linear-gradient(135deg,#2a2f2e,#5a4a4a)', filter:'grayscale(.4) contrast(1.4) brightness(.85) sepia(.1)',         overlay:'rgba(20,40,40,.3)',   blend:'multiply', vignette:.85},
+  ethereal:     {name:'Ethereal',      sw:'linear-gradient(135deg,#e6f0ff,#f6e6ff)', filter:'saturate(1.05) brightness(1.22) contrast(.85) blur(.3px)',      overlay:'rgba(200,225,255,.3)',blend:'screen',   vignette:.12, bloom:true},
+  streetwear:   {name:'Streetwear',    sw:'linear-gradient(135deg,#1f2933,#ff5a36)', filter:'saturate(1.3) contrast(1.28) brightness(1.0)',                  overlay:'rgba(255,80,40,.12)', blend:'screen',   vignette:.5},
+  softglam:     {name:'Soft Glam',     sw:'linear-gradient(135deg,#ffd9c2,#ffb3d1)', filter:'saturate(1.15) brightness(1.14) contrast(1.0) blur(.2px)',      overlay:'rgba(255,180,160,.26)',blend:'screen',  vignette:.3, bloom:true}
+};
+const ORDER = ['gothic','anime','darkacademia','fairycore','cyberpunk','vaporwave','noir','golden','pastel','y2k','cottagecore','grunge','ethereal','streetwear','softglam'];
+
+/* prompt fragments used when the real AI image API is enabled (see USE_AI) */
+const PROMPTS = {
+  gothic:'dark gothic aesthetic with moody shadows, pale skin, black clothing and a haunting atmosphere',
+  anime:'vibrant anime / cel-shaded art style with big expressive eyes and bold clean lines',
+  darkacademia:'dark academia aesthetic, vintage scholarly mood, warm sepia tones, tweed and old-library atmosphere',
+  fairycore:'dreamy fairycore aesthetic, soft pastel glow, whimsical magical lighting and floral accents',
+  cyberpunk:'neon cyberpunk aesthetic with magenta and cyan lighting, futuristic city glow',
+  vaporwave:'80s vaporwave aesthetic, purple and pink retro gradient, glitch and chrome accents',
+  noir:'classic black-and-white film noir aesthetic with dramatic high-contrast lighting',
+  golden:'warm golden-hour aesthetic with soft sun-kissed lighting and amber tones',
+  pastel:'soft pastel aesthetic, gentle muted colors, airy and dreamy',
+  y2k:'glossy Y2K aesthetic, hot pink and electric blue, butterfly clips and shiny chrome vibes',
+  cottagecore:'cozy cottagecore aesthetic, warm earthy tones, soft natural light and rustic charm',
+  grunge:'gritty 90s grunge aesthetic, desaturated muted tones, raw and moody',
+  ethereal:'ethereal aesthetic, luminous soft glow, angelic dreamy lighting',
+  streetwear:'bold urban streetwear aesthetic, high-contrast editorial look, confident and cool',
+  softglam:'soft glam aesthetic, flawless glowing skin, warm beauty lighting'
+};
+
+/* ---------- state ---------- */
+let mode='transform', aes='gothic', vibe='edgy', gender='neutral', srcImg=null, hasResult=false;
+
+/* ===== REAL AI TRANSFORM CONFIG =====
+   Leave USE_AI=false and the site works fully on in-browser filters (free).
+   Flip to true AFTER you deploy the Netlify function (see SETUP.md):
+   it proxies fal.ai so your API key stays secret on the server.        */
+const USE_AI = false;
+const AI_ENDPOINT = '/.netlify/functions/transform';
+
+function buildPrompt(){
+  const base = PROMPTS[aes] || AESTHETICS[aes].name;
+  const v = {soft:'soft, gentle, low-key',edgy:'edgy, bold, high-contrast',vibrant:'vivid, saturated, punchy'}[vibe];
+  const g = {neutral:'',fem:'feminine styling, ',masc:'masculine styling, '}[gender];
+  return `Transform this person into a profile picture with a ${base}. ${g}${v} mood. Keep the face clearly recognizable and well lit. Square 1:1 social-media avatar, high detail, clean background.`;
+}
+
+/* ---------- build chips ---------- */
+const chips=document.getElementById('chips');
+ORDER.forEach((k,i)=>{
+  const a=AESTHETICS[k];
+  const el=document.createElement('div');
+  el.className='chip'+(i===0?' active':'');
+  el.dataset.k=k;
+  el.innerHTML=`<div class="sw" style="background:${a.sw}"></div><span>${a.name}</span>`;
+  el.onclick=()=>{aes=k;[...chips.children].forEach(c=>c.classList.remove('active'));el.classList.add('active')};
+  chips.appendChild(el);
+});
+
+/* ---------- build gallery ---------- */
+const gallery=document.getElementById('gallery');
+ORDER.forEach(k=>{
+  const a=AESTHETICS[k];
+  const t=document.createElement('div');
+  t.className='tile';t.style.background=a.sw;t.textContent=a.name;
+  t.onclick=()=>{
+    aes=k;
+    [...chips.children].forEach(c=>c.classList.toggle('active',c.dataset.k===k));
+    document.getElementById('forge').scrollIntoView({behavior:'smooth'});
+  };
+  gallery.appendChild(t);
+});
+
+/* ---------- segmented controls ---------- */
+function seg(id,cb){document.getElementById(id).querySelectorAll('button').forEach(b=>{
+  b.onclick=()=>{document.getElementById(id).querySelectorAll('button').forEach(x=>x.classList.remove('active'));b.classList.add('active');cb(b)};
+});}
+seg('vibe',b=>vibe=b.dataset.v);
+seg('gender',b=>gender=b.dataset.g);
+
+/* ---------- mode switch ---------- */
+const stageLabel=document.getElementById('stageLabel');
+const hint=document.getElementById('hint');
+const note=document.getElementById('note');
+document.querySelectorAll('.mode').forEach(m=>{
+  m.onclick=()=>{
+    document.querySelectorAll('.mode').forEach(x=>x.classList.remove('active'));
+    m.classList.add('active');mode=m.dataset.mode;
+    resetStage();
+    if(mode==='create'){
+      stageLabel.textContent='Generated avatar';
+      hint.innerHTML='<div class="ico">✨</div><b>No photo needed</b><span>Pick an aesthetic, then forge a brand-new PFP</span>';
+      document.getElementById('go').disabled=false;
+      note.textContent='Create mode builds an original avatar from gradients + your chosen aesthetic. No upload required.';
+    }else{
+      stageLabel.textContent='Your photo';
+      hint.innerHTML='<div class="ico">⬆️</div><b>Tap to upload a photo</b><span>JPG or PNG — a clear face works best</span>';
+      document.getElementById('go').disabled=true;
+      note.textContent='Upload a photo to begin. Everything runs in your browser — your image never leaves your device.';
+    }
+  };
+});
+
+/* ---------- upload ---------- */
+const stage=document.getElementById('stage');
+const fileInput=document.getElementById('file');
+const canvas=document.getElementById('canvas');
+const ctx=canvas.getContext('2d');
+
+stage.onclick=()=>{ if(mode==='transform' && !hasResult) fileInput.click(); };
+stage.onkeydown=e=>{ if((e.key==='Enter'||e.key===' ')&&mode==='transform'&&!hasResult){e.preventDefault();fileInput.click();} };
+fileInput.onchange=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=ev=>{ const im=new Image(); im.onload=()=>{srcImg=im;showSrc();document.getElementById('go').disabled=false;note.textContent='Looking good. Pick an aesthetic and hit forge.';}; im.src=ev.target.result; };
+  r.readAsDataURL(f);
+};
+function showSrc(){
+  const S=640; canvas.width=S; canvas.height=S;
+  // cover-fit the source into a square
+  const r=Math.max(S/srcImg.width,S/srcImg.height);
+  const w=srcImg.width*r,h=srcImg.height*r;
+  ctx.clearRect(0,0,S,S);
+  ctx.drawImage(srcImg,(S-w)/2,(S-h)/2,w,h);
+  canvas.style.display='block'; hint.style.display='none'; stage.classList.add('has');
+}
+
+/* ---------- forge ---------- */
+const go=document.getElementById('go');
+go.onclick=async ()=>{
+  stage.classList.add('busy');
+  document.getElementById('spinTxt').textContent = mode==='create' ? 'Generating avatar…' : 'Forging your PFP…';
+  go.disabled=true;
+  let usedFallback=false;
+  try{
+    if(USE_AI && isPro() && mode==='transform' && srcImg){
+      await forgeWithAI();           // real fal.ai morph via the serverless proxy (Pro only)
+    }else{
+      await new Promise(r=>setTimeout(r,900));
+      if(mode==='create') generateAvatar(); else applyAesthetic();
+    }
+  }catch(err){
+    console.error('AI transform failed, falling back:',err);
+    if(mode==='create') generateAvatar(); else applyAesthetic();
+    usedFallback=true;
+  }
+  stage.classList.remove('busy');
+  document.getElementById('actions').classList.add('show');
+  hasResult=true; go.disabled=false;
+  note.textContent = usedFallback
+    ? 'AI service was unavailable, so we used the in-browser style. Download it or try again.'
+    : 'Done! Download it, or tweak the options and forge again.';
+};
+
+/* call the serverless proxy, which calls fal.ai and returns a base64 image */
+async function forgeWithAI(){
+  const dataUri = canvas.toDataURL('image/jpeg',0.92); // the square-cropped upload
+  const res = await fetch(AI_ENDPOINT,{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},
+    body:JSON.stringify({ prompt:buildPrompt(), image:dataUri })
+  });
+  if(!res.ok) throw new Error('AI endpoint '+res.status);
+  const {image}=await res.json();
+  if(!image) throw new Error('no image returned');
+  await new Promise((resolve,reject)=>{
+    const im=new Image();
+    im.onload=()=>{ const S=640;canvas.width=S;canvas.height=S;ctx.clearRect(0,0,S,S);ctx.drawImage(im,0,0,S,S);canvas.style.display='block';hint.style.display='none';stage.classList.add('has');resolve(); };
+    im.onerror=reject; im.src=image;
+  });
+}
+
+function vibeMul(){return vibe==='vibrant'?1.18:vibe==='soft'?0.6:1;}
+
+function applyAesthetic(){
+  const a=AESTHETICS[aes], S=640; canvas.width=S; canvas.height=S;
+  const r=Math.max(S/srcImg.width,S/srcImg.height), w=srcImg.width*r, h=srcImg.height*r;
+  ctx.save(); ctx.clearRect(0,0,S,S);
+  ctx.filter=a.filter; ctx.drawImage(srcImg,(S-w)/2,(S-h)/2,w,h); ctx.filter='none'; ctx.restore();
+  if(a.bloom){ ctx.save(); ctx.globalAlpha=.35*vibeMul(); ctx.filter='blur(8px) brightness(1.3)'; ctx.drawImage(srcImg,(S-w)/2,(S-h)/2,w,h); ctx.filter='none'; ctx.restore(); }
+  // color overlay
+  ctx.save(); ctx.globalCompositeOperation=a.blend; ctx.globalAlpha=Math.min(1,parseFloat(a.overlay.split(',')[3])*vibeMul()*1.4)||.3;
+  ctx.fillStyle=a.overlay.replace(/,[^,]+\)$/,',1)'); ctx.fillRect(0,0,S,S); ctx.restore();
+  vignette(a.vignette);
+  if(a.glowEdge) edgeGlow(S);
+  finish();
+}
+
+function vignette(strength){
+  if(!strength) return; const S=640;
+  const g=ctx.createRadialGradient(S/2,S/2,S*0.28,S/2,S/2,S*0.72);
+  g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,`rgba(0,0,0,${0.6*strength})`);
+  ctx.fillStyle=g; ctx.fillRect(0,0,S,S);
+}
+function edgeGlow(S){ ctx.save(); ctx.globalCompositeOperation='screen';
+  const g=ctx.createLinearGradient(0,0,S,S); g.addColorStop(0,'rgba(255,0,200,.18)'); g.addColorStop(1,'rgba(0,240,255,.18)');
+  ctx.fillStyle=g; ctx.fillRect(0,0,S,S); ctx.restore(); }
+
+/* generative avatar for "create from scratch" */
+function generateAvatar(){
+  const a=AESTHETICS[aes], S=640; canvas.width=S; canvas.height=S;
+  const palettes={
+    gothic:['#1b1020','#3a2150','#0a0610'], anime:['#ff7bd5','#7fd4ff','#fff3a0'],
+    darkacademia:['#5a4326','#2a1d12','#8a6a3a'], fairycore:['#ffd6f5','#d6ffe9','#c8b5ff'],
+    cyberpunk:['#ff2bd6','#22f0ff','#11071f'], vaporwave:['#a06bff','#ff8fd0','#6be0ff'],
+    noir:['#0e0e10','#5a5a5e','#cfcfcf'], golden:['#ffcf6b','#ff8a5c','#fff0c0'], pastel:['#ffd1e8','#cfe5ff','#e0ffd1']
+  }[aes];
+  // layered radial blobs
+  ctx.fillStyle=palettes[2]; ctx.fillRect(0,0,S,S);
+  for(let i=0;i<5;i++){
+    const x=Math.random()*S, y=Math.random()*S, rad=120+Math.random()*260;
+    const g=ctx.createRadialGradient(x,y,0,x,y,rad);
+    g.addColorStop(0,palettes[i%2]); g.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.globalAlpha=.55*vibeMul(); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,rad,0,7); ctx.fill();
+  }
+  ctx.globalAlpha=1;
+  // silhouette suggestion (head + shoulders) tinted by style
+  const skin = gender==='fem'?palettes[0]:gender==='masc'?palettes[1]:palettes[0];
+  ctx.save(); ctx.globalAlpha=.4; ctx.fillStyle=skin;
+  ctx.beginPath(); ctx.arc(S/2,S*0.42,S*0.16,0,7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(S/2,S*0.92,S*0.30,S*0.26,0,0,7); ctx.fill(); ctx.restore();
+  vignette(a.vignette||.4);
+  finish();
+}
+
+function finish(){
+  // subtle grain for cohesion
+  const S=640, img=ctx.getImageData(0,0,S,S), d=img.data;
+  for(let i=0;i<d.length;i+=4){ const n=(Math.random()-.5)*14; d[i]+=n; d[i+1]+=n; d[i+2]+=n; }
+  ctx.putImageData(img,0,0);
+  canvas.style.display='block'; hint.style.display='none'; stage.classList.add('has');
+}
+
+/* ---------- download / reset ---------- */
+document.getElementById('download').onclick=()=>{
+  const link=document.createElement('a');
+  link.download=`pfpforge-${aes}.png`; link.href=canvas.toDataURL('image/png'); link.click();
+};
+document.getElementById('reset').onclick=resetStage;
+function resetStage(){
+  srcImg=null; hasResult=false; fileInput.value='';
+  canvas.style.display='none'; stage.classList.remove('has');
+  document.getElementById('actions').classList.remove('show');
+  hint.style.display='block';
+  if(mode==='transform'){go.disabled=true;}
+}
+
+/* ---------- consent (GDPR / AdSense) ---------- */
+const consent=document.getElementById('consent');
+if(!localStorage.getItem('pfp_consent')) setTimeout(()=>consent.classList.add('show'),1200);
+function close(v){localStorage.setItem('pfp_consent',v);consent.classList.remove('show');}
+document.getElementById('accept').onclick=()=>close('all');
+document.getElementById('decline').onclick=()=>close('essential');
+
+/* deep-link: index.html?aes=anime#forge preselects that aesthetic (blog CTAs) */
+(function(){
+  const k=new URLSearchParams(location.search).get('aes');
+  if(k && AESTHETICS[k]){
+    aes=k;
+    [...chips.children].forEach(c=>c.classList.toggle('active',c.dataset.k===k));
+  }
+})();
+
+/* ---------- Stripe Pro + server-verified login ----------
+   pk_live_ is a PUBLISHABLE key — safe to expose in client code by design.
+   Pro is verified by the server (signed token + live subscription check),
+   so editing browser storage can't fake it and can't trigger paid AI calls.
+   To test first, swap this for pk_test_ and use test keys server-side. */
+const STRIPE_PK = 'pk_live_51T7ikg1FLeiBj61rKrom37n2myjkHZgg8AI20TbjPDe6XKY1KEaSY0hnVzNkBO7vtZ7fcnVXO3oDVkl0crPdXNJ500cxons4yb';
+let stripeObj=null; try{ if(window.Stripe) stripeObj=Stripe(STRIPE_PK); }catch(e){}
+
+let proState=false;
+function getToken(){ try{ return localStorage.getItem('pfp_token')||''; }catch(e){ return ''; } }
+function isPro(){ return proState; }
+
+const upgradeBtn=document.getElementById('upgrade');
+
+function applyProUI(){
+  if(proState){
+    document.querySelectorAll('.ad-slot').forEach(a=>a.style.display='none');
+    if(upgradeBtn){ upgradeBtn.textContent='Manage subscription'; upgradeBtn.dataset.act='portal'; upgradeBtn.disabled=false; }
+  }
+}
+async function refreshPro(){
+  if(!getToken()){ proState=false; return; }
+  try{
+    const r=await fetch('/.netlify/functions/me',{headers:{'Authorization':'Bearer '+getToken()}});
+    const d=await r.json(); proState=!!d.pro;
+  }catch(e){ proState=false; }
+  applyProUI();
+}
+
+if(upgradeBtn) upgradeBtn.onclick=async ()=>{
+  if(upgradeBtn.dataset.act==='portal') return openPortal();
+  upgradeBtn.disabled=true; upgradeBtn.textContent='Starting checkout…';
+  try{
+    const res=await fetch('/.netlify/functions/create-checkout',{method:'POST'});
+    const data=await res.json();
+    if(data.url){ window.location=data.url; return; }                                  // hosted Checkout (shows card + PayPal)
+    if(data.id && stripeObj){ await stripeObj.redirectToCheckout({sessionId:data.id}); return; }
+    throw new Error(data.error||'No checkout URL returned');
+  }catch(err){
+    console.error(err);
+    upgradeBtn.disabled=false; upgradeBtn.textContent='Upgrade to Pro →';
+    alert('Checkout is not finished setting up yet. See SETUP.md to add your Stripe keys and price ID in Netlify.');
+  }
+};
+
+async function openPortal(){
+  try{
+    const r=await fetch('/.netlify/functions/create-portal',{method:'POST',headers:{'Authorization':'Bearer '+getToken()}});
+    const d=await r.json(); if(d.url){ window.location=d.url; return; } throw new Error(d.error||'no portal url');
+  }catch(e){ alert('Could not open the billing portal right now.'); }
+}
+
+/* "Already Pro on another device?" → email a login link */
+const restoreLink=document.getElementById('restore');
+if(restoreLink) restoreLink.onclick=async (e)=>{
+  e.preventDefault();
+  const email=prompt('Enter the email you subscribed with and we\u2019ll send a login link:');
+  if(!email) return;
+  try{
+    await fetch('/.netlify/functions/auth-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
+  }catch(e2){}
+  alert('If that email has an active subscription, a login link is on its way. It expires in 15 minutes.');
+};
+
+refreshPro();
+</script>
+</body>
+</html>

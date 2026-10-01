@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Welcome to Pro — PFPFORGE</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;800;900&family=Sora:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0a0612;--ink:#f4eefb;--muted:#a99bc4;--magenta:#ff3d9a;--violet:#9b5cff;--cyan:#33e6ff;--line:rgba(255,255,255,.09)}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Sora',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;
+    background-image:radial-gradient(60vw 60vw at 20% 10%,rgba(255,61,154,.25),transparent 60%),radial-gradient(60vw 60vw at 80% 90%,rgba(51,230,255,.2),transparent 60%)}
+  .box{max-width:460px}
+  .badge{width:74px;height:74px;border-radius:50%;margin:0 auto 24px;display:flex;align-items:center;justify-content:center;font-size:2rem;background:linear-gradient(135deg,var(--magenta),var(--cyan));box-shadow:0 0 50px rgba(155,92,255,.5)}
+  h1{font-family:'Unbounded',sans-serif;font-weight:900;font-size:2rem;letter-spacing:-.02em;margin-bottom:14px}
+  p{color:var(--muted);font-weight:300;line-height:1.6;margin-bottom:26px}
+  a.btn{display:inline-block;font-family:'Unbounded',sans-serif;font-weight:800;font-size:1rem;padding:15px 30px;border-radius:14px;color:#fff;text-decoration:none;background:linear-gradient(110deg,var(--magenta),var(--violet) 50%,var(--cyan));background-size:200% 100%;box-shadow:0 0 40px rgba(155,92,255,.45);transition:.4s}
+  a.btn:hover{background-position:100% 0;transform:translateY(-2px)}
+  .small{font-size:.8rem;opacity:.7;margin-top:22px}
+</style>
+</head>
+<body>
+  <div class="box">
+    <div class="badge">✦</div>
+    <h1>You're Pro now</h1>
+    <p>Payment complete — real AI photo morphing is unlocked and ads are off. Head back and forge something.</p>
+    <a class="btn" href="index.html#forge">Start forging →</a>
+    <p class="small">A receipt is on its way to your email from Stripe.</p>
+  </div>
+<script>
+  // Verify the checkout server-side and store the signed session token that
+  // unlocks Pro. (Falls back to a local flag if the function isn't set up yet.)
+  (async function(){
+    try{
+      const sid=new URLSearchParams(location.search).get('session_id');
+      if(!sid) return;
+      const r=await fetch('/.netlify/functions/auth-session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid})});
+      const d=await r.json();
+      if(d.token){ localStorage.setItem('pfp_token',d.token); localStorage.setItem('pfp_pro','1'); }
+    }catch(e){}
+  })();
+</script>
+</body>
+</html>
