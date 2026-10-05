@@ -6,7 +6,7 @@ so you can safely work through 1–4 first.
 ---
 
 ## 1. Deploy the site
-- [ ] Push the `pfp-generator` folder to a GitHub repo.
+- [ ] Push this repo to GitHub (keep the `lib/` and `netlify/functions/` folders as they are).
 - [ ] Netlify → Add new site → Import from GitHub → pick the repo.
 - [ ] Build command: blank. Publish directory: `.`
 - [ ] Site loads. The free in-browser forge works (upload → pick aesthetic → Forge → Download).
@@ -25,6 +25,8 @@ so you can safely work through 1–4 first.
 - [ ] `STRIPE_WEBHOOK_SECRET` — from the webhook you create in step 4
 - [ ] `SESSION_SECRET` — long random string (`openssl rand -hex 32`)
 - [ ] `RESEND_API_KEY` — optional (only for cross-device email login)
+- [ ] `SITE_URL` — optional; your live URL, e.g. `https://pfpforge.com`
+- [ ] `DAILY_AI_LIMIT` — optional; AI transforms per subscriber per day (default 30)
 - [ ] In `index.html`, set `STRIPE_PK` to your **pk_test_** key for now
 - [ ] Set `USE_AI = true` in `index.html`
 
@@ -62,6 +64,9 @@ so you can safely work through 1–4 first.
 ---
 
 ### Quick rollback
-If anything misbehaves after going live, set `USE_AI = false` in `index.html`
-and redeploy — the site falls back to the free in-browser filter for everyone
-and stops all AI spend immediately, without taking the site down.
+If anything misbehaves after going live, set the Netlify environment variable
+`AI_ENABLED` to `false` and redeploy. The `transform` function then refuses
+every AI request, so spending stops even for people who still have a Pro
+login, and the site falls back to the free in-browser filter.
+Also set `USE_AI = false` in `index.html` so the site stops trying AI at all.
+For a full stop, rotate your fal.ai key.

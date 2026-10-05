@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import { siteUrl, json } from "../../lib/auth.mjs";
 
 /* ---------------------------------------------------------------------------
    PFPFORGE — Stripe Checkout session creator (Netlify Function)
@@ -10,6 +11,7 @@ import Stripe from "stripe";
      STRIPE_SECRET_KEY   your sk_live_… (use sk_test_… while testing)
      STRIPE_PRICE_ID     the Price you create in the Stripe dashboard
                          (recurring, $4.99/month) — looks like price_123...
+     SITE_URL            optional; defaults to Netlify's URL for the site
 
    The publishable key (pk_live_…) is NOT used here — it lives in index.html.
 --------------------------------------------------------------------------- */
@@ -21,7 +23,7 @@ export const handler = async (event) => {
 
   try {
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-    const origin = event.headers.origin || `https://${event.headers.host}`;
+    const origin = siteUrl();
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
@@ -34,10 +36,6 @@ export const handler = async (event) => {
     return json(200, { id: session.id, url: session.url });
   } catch (err) {
     console.error(err);
-    return json(500, { error: String(err?.message || err) });
+    return json(500, { error: "Could not start checkout" });
   }
 };
-
-function json(statusCode, obj) {
-  return { statusCode, headers: { "Content-Type": "application/json" }, body: JSON.stringify(obj) };
-}

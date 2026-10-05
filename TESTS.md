@@ -16,7 +16,7 @@ None of this moves real money.
 ## B. AI is gated until you pay
 1. While still not logged in, open the browser console and run:
    `fetch('/.netlify/functions/transform',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(r=>console.log(r.status))`
-   - ✅ Logs **401** (or 403). The function refuses to spend without an active subscriber.
+   - ✅ Logs **401**. The function refuses to spend without an active subscriber.
 2. Try faking it: in console run `localStorage.setItem('pfp_pro','1')` and reload.
    - ✅ Nothing unlocks — ads stay, and uploading + Forge still uses the
      **filter**. The UI and the AI both key off a server-verified token, not
@@ -28,7 +28,8 @@ None of this moves real money.
    - ✅ Redirects to Stripe Checkout showing the $4.99/mo plan.
    - ✅ Card is offered. (PayPal only appears in **live** mode once approved — see note.)
 2. Pay with `4242 4242 4242 4242`.
-   - ✅ Lands on `success.html` ("You're Pro now").
+   - ✅ Lands on `success.html`, which says "You're Pro now" once Stripe confirms.
+   - ✅ The `?session_id=…` part disappears from the address bar.
 3. Go back to the site / reload.
    - ✅ Pro section now shows **"Manage subscription"**.
    - ✅ Ad slots are hidden.
@@ -45,8 +46,15 @@ None of this moves real money.
 1. Click **Manage subscription**.
    - ✅ Opens Stripe's billing portal for your test customer.
 2. Cancel the subscription there, return to the site, reload.
-   - ✅ Within a moment, "Manage subscription" is gone / AI is locked again
-     (the `customer.subscription.deleted` webhook flipped you to inactive).
+   - With Stripe's default portal setting the cancellation is scheduled for
+     the end of the period, so you **stay Pro until then**. To test the
+     revoke now, cancel it immediately from the Stripe Dashboard
+     (Customers → the subscription → Cancel → Immediately).
+   - ✅ After an immediate cancel, "Manage subscription" is gone and AI is
+     locked again (the `customer.subscription.deleted` webhook flipped you to inactive).
+3. Open your old `success.html?session_id=…` link from step C again
+   (copy it from Stripe → Payments → the checkout session).
+   - ✅ It does **not** unlock Pro again.
 
 ## F. Cross-device restore (only if RESEND_API_KEY is set)
 1. In a fresh browser (or incognito), open the Pro section.
@@ -56,6 +64,7 @@ None of this moves real money.
      whether or not the email is real (it never reveals who's a subscriber).
 3. Check that inbox → click the link → it opens `auth.html` → redirects back.
    - ✅ You're Pro on this browser now.
+   - ✅ Clicking the same email link a second time says it was already used.
 4. Enter a **random** email that never subscribed.
    - ✅ Same message, but **no email arrives** and nothing unlocks.
 

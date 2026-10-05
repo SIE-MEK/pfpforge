@@ -1,13 +1,19 @@
 # PFPFORGE — Setup Guide
 
-You have three files plus a folder:
+The project is laid out like this. Keep this folder structure when you deploy:
+every function imports `../../lib/auth.mjs`, so the files must sit in
+`lib/` and `netlify/functions/` exactly as shown.
+
+> Not in this repo yet: `sitemap.xml`, `robots.txt` and the `blog/` folder.
+> Add them before doing the SEO steps below.
 
 ```
-pfp-generator/
+pfpforge/
 ├─ index.html                      ← the website (works on its own, no setup needed)
 ├─ success.html                    ← shown after a successful Pro payment
 ├─ auth.html                       ← captures the email login link (cross-device)
 ├─ package.json                    ← lists dependencies
+├─ netlify.toml                    ← tells Netlify where the site and functions are
 ├─ sitemap.xml                     ← list of pages for Google (edit the domain)
 ├─ robots.txt                      ← tells crawlers where the sitemap is (edit the domain)
 ├─ SETUP.md                        ← this file
@@ -170,6 +176,17 @@ Environment variables), in addition to the Stripe ones above:
     restore on a second device by email.
   - `MAIL_FROM` — *optional*, e.g. `PFPFORGE <hello@yourdomain.com>` once you've
     verified a domain in Resend. Defaults to a Resend test sender.
+  - `SITE_URL` — *optional*, e.g. `https://pfpforge.com`. Used for login-email
+    links and Stripe redirects. If unset, Netlify's own site URL is used
+    (your custom domain once it's set as primary). Links are never built from
+    the visitor's request, so nobody can redirect them to another site.
+  - `DAILY_AI_LIMIT` — *optional*, AI transforms per subscriber per day
+    (default 30). Stops one subscription (or a shared login) running up an
+    unlimited fal.ai bill.
+  - `AI_ENABLED` — *optional*. Set to `false` and redeploy to stop all AI
+    spend instantly from the server side.
+  - `FUNCTION_TIMEOUT_S` — *optional*, your Netlify function timeout in
+    seconds (default 10). Only change it if Netlify raised your limit.
 
 **b. Create the Stripe webhook**
   - Stripe Dashboard → Developers → Webhooks → **Add endpoint.**
@@ -177,13 +194,21 @@ Environment variables), in addition to the Stripe ones above:
   - Events: `checkout.session.completed`, `customer.subscription.updated`,
     `customer.subscription.deleted`, `invoice.payment_failed`.
   - Save, copy the **Signing secret** (`whsec_…`) into `STRIPE_WEBHOOK_SECRET`.
+  - Only subscriptions to your `STRIPE_PRICE_ID` grant Pro, so other products
+    on the same Stripe account are safe to keep.
 
 **c. Netlify Blobs** needs no setup — it's built into Netlify Functions and
 turns on automatically when the code uses it.
 
 That's it. After deploy: a purchase unlocks Pro automatically, "Manage
 subscription" opens Stripe's portal, cancelling revokes AI access on the next
-check, and "Already Pro on another device?" emails a 15-minute login link.
+check, and "Already Pro on another device?" emails a 15-minute, single-use
+login link.
+
+**d. Stripe customer portal settings** (Settings → Billing → Customer portal):
+  - By default, cancelling takes effect at the **end of the billing period**,
+    so Pro stays on until then. That's normal; switch to "cancel immediately"
+    only if you want access to stop at once.
 
 ---
 
@@ -233,13 +258,16 @@ functions cap at ~10 seconds (26s on some plans). The default model
 heavier model and hit timeouts, fixes easiest-first:
 - Stay on a *fast* model (the default `fal-ai/nano-banana-2/edit`, or another
   "fast"/"flash"/"schnell" endpoint on fal.ai).
-- Raise the function timeout in Netlify if your plan allows.
+- Raise the function timeout in Netlify if your plan allows, then set
+  `FUNCTION_TIMEOUT_S` to match. The function gives up and cancels the fal job
+  about 2.5 seconds before that limit, so users aren't billed for results they
+  never receive.
 - For heavy models, switch to a queue + webhook flow, or host the function on a
   platform with longer limits (Vercel, Cloudflare Workers).
 
 **Faces look wrong / unrecognizable** — Edit the prompt logic in
-`buildPrompt()` inside `index.html`, or switch `MODEL` to an identity-preserving
-editor like Nano Banana. Adding "keep the same face, same features" to the
+`buildPrompt()` inside `index.html`, or try another identity-preserving
+editor from the list at the top of `transform.mjs`. Adding "keep the same face, same features" to the
 prompt helps.
 
 **Download button does nothing after AI** — The function already returns the
@@ -247,9 +275,9 @@ image as base64 to avoid this. If you changed it to return a URL instead, the
 canvas becomes "tainted" and downloads break — return base64.
 
 **Costs creeping up** — Every AI transform is a paid API call. Keep the
-free in-browser filter as the default for casual users and consider gating AI
-mode (e.g., behind a daily limit) if a pin goes viral. Set a hard spend cap in
-fal.ai.
+free in-browser filter as the default for casual users. Each subscriber is
+capped at `DAILY_AI_LIMIT` transforms a day (default 30); lower it if needed.
+Set a hard spend cap in fal.ai too.
 
 ---
 

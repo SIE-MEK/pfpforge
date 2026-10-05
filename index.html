@@ -550,10 +550,16 @@ document.querySelectorAll('.mode').forEach(m=>{
       stageLabel.textContent='Your photo';
       hint.innerHTML='<div class="ico">⬆️</div><b>Tap to upload a photo</b><span>JPG or PNG — a clear face works best</span>';
       document.getElementById('go').disabled=true;
-      note.textContent='Upload a photo to begin. Everything runs in your browser — your image never leaves your device.';
+      note.textContent=uploadNote();
     }
   };
 });
+
+function uploadNote(){
+  return (USE_AI && isPro())
+    ? 'Upload a photo to begin. AI mode is on: your photo is sent securely to our image service to generate your result.'
+    : 'Upload a photo to begin. Everything runs in your browser — your image never leaves your device.';
+}
 
 /* ---------- upload ---------- */
 const stage=document.getElementById('stage');
@@ -595,7 +601,7 @@ go.onclick=async ()=>{
     }
   }catch(err){
     console.error('AI transform failed, falling back:',err);
-    if(mode==='create') generateAvatar(); else applyAesthetic();
+    try{ if(mode==='create') generateAvatar(); else applyAesthetic(); }catch(err2){ console.error(err2); }
     usedFallback=true;
   }
   stage.classList.remove('busy');
@@ -657,8 +663,11 @@ function generateAvatar(){
     gothic:['#1b1020','#3a2150','#0a0610'], anime:['#ff7bd5','#7fd4ff','#fff3a0'],
     darkacademia:['#5a4326','#2a1d12','#8a6a3a'], fairycore:['#ffd6f5','#d6ffe9','#c8b5ff'],
     cyberpunk:['#ff2bd6','#22f0ff','#11071f'], vaporwave:['#a06bff','#ff8fd0','#6be0ff'],
-    noir:['#0e0e10','#5a5a5e','#cfcfcf'], golden:['#ffcf6b','#ff8a5c','#fff0c0'], pastel:['#ffd1e8','#cfe5ff','#e0ffd1']
-  }[aes];
+    noir:['#0e0e10','#5a5a5e','#cfcfcf'], golden:['#ffcf6b','#ff8a5c','#fff0c0'], pastel:['#ffd1e8','#cfe5ff','#e0ffd1'],
+    y2k:['#ff9ae6','#7ad7ff','#fff0fb'], cottagecore:['#e8d59a','#a9c98a','#5b4a2e'],
+    grunge:['#2a2f2e','#5a4a4a','#141716'], ethereal:['#e6f0ff','#f6e6ff','#cfd8ff'],
+    streetwear:['#1f2933','#ff5a36','#0d1117'], softglam:['#ffd9c2','#ffb3d1','#fff1ea']
+  }[aes] || ['#ff3d9a','#33e6ff','#0a0612'];
   // layered radial blobs
   ctx.fillStyle=palettes[2]; ctx.fillRect(0,0,S,S);
   for(let i=0;i<5;i++){
@@ -733,6 +742,7 @@ function applyProUI(){
   if(proState){
     document.querySelectorAll('.ad-slot').forEach(a=>a.style.display='none');
     if(upgradeBtn){ upgradeBtn.textContent='Manage subscription'; upgradeBtn.dataset.act='portal'; upgradeBtn.disabled=false; }
+    if(mode==='transform' && !hasResult && !srcImg) note.textContent=uploadNote();
   }
 }
 async function refreshPro(){

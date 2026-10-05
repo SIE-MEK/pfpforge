@@ -1,5 +1,5 @@
 import { fal } from "@fal-ai/client";
-import { bearer, verify, isActiveEmail } from "../../lib/auth.mjs";
+import { init, sessionEmail, isActiveEmail, hit, json } from "../../lib/auth.mjs";
 
 /* ---------------------------------------------------------------------------
    PFPFORGE — AI transform proxy (Netlify Function)
@@ -14,28 +14,61 @@ import { bearer, verify, isActiveEmail } from "../../lib/auth.mjs";
      - "fal-ai/firered-image-edit-v1.1"   (strong identity/portrait consistency)
      - "openai/gpt-image-2/edit"          (prompt + image_urls, slower)
      - "fal-ai/flux/dev/image-to-image"   (uses { image_url, strength } instead)
+
+   Optional env vars:
+     AI_ENABLED=false       server-side kill switch: stops all AI spend
+     DAILY_AI_LIMIT=30      AI transforms per subscriber per UTC day
+     FUNCTION_TIMEOUT_S=10  your Netlify function timeout (raise if Netlify
+                            raised yours, e.g. 26)
 --------------------------------------------------------------------------- */
 const MODEL = "fal-ai/nano-banana-2/edit";
+const MAX_IMAGE_CHARS = 3_000_000;   // ~2.2 MB image; the client sends a 640px JPEG
+const MAX_PROMPT_CHARS = 1000;
+const DAY = 24 * 60 * 60 * 1000;
 
 export const handler = async (event) => {
   if (event.httpMethod !== "POST") return json(405, { error: "POST only" });
-  if (!process.env.FAL_KEY)        return json(500, { error: "FAL_KEY env var is not set on the server" });
+  if (process.env.AI_ENABLED === "false") return json(503, { error: "AI mode is temporarily off" });
+  init(event);
 
   // SPEND GATE: only an active, verified subscriber can trigger a paid AI call.
   // This is enforced on the server so it can't be bypassed from the browser.
-  const payload = verify(bearer(event) || "");
-  if (!payload?.email || payload.typ === "login") return json(401, { error: "Sign in / subscribe to use AI mode" });
-  if (!(await isActiveEmail(payload.email)))      return json(403, { error: "No active Pro subscription" });
+  const email = sessionEmail(event);
+  if (!email) return json(401, { error: "Sign in / subscribe to use AI mode" });
+  if (!(await isActiveEmail(email))) return json(403, { error: "No active Pro subscription" });
+  if (!process.env.FAL_KEY) return json(500, { error: "AI is not configured on the server" });
+
+  let prompt, image;
+  try { ({ prompt, image } = JSON.parse(event.body || "{}")); }
+  catch (e) { return json(400, { error: "Invalid JSON" }); }
+  if (typeof prompt !== "string" || !prompt.trim() || prompt.length > MAX_PROMPT_CHARS) {
+    return json(400, { error: "A prompt of up to 1000 characters is required" });
+  }
+  if (typeof image !== "string" || !/^data:image\/(jpeg|png|webp);base64,/.test(image) || image.length > MAX_IMAGE_CHARS) {
+    return json(400, { error: "image must be a JPEG, PNG or WebP data URI under 2 MB" });
+  }
+
+  // Count the attempt before spending, so failed or timed-out calls count too.
+  const limit = Number(process.env.DAILY_AI_LIMIT) || 30;
+  if (!(await hit("ai", email, limit, DAY))) {
+    return json(429, { error: `Daily AI limit reached (${limit}). It resets at midnight UTC.` });
+  }
+
+  // Stop waiting before Netlify kills the function, and cancel the fal job so
+  // we're not billed for a result nobody will receive.
+  const budgetMs = (Number(process.env.FUNCTION_TIMEOUT_S) || 10) * 1000 - 2500;
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), Math.max(budgetMs, 3000));
+  let requestId = null;
 
   try {
-    const { prompt, image } = JSON.parse(event.body || "{}");
-    if (!prompt || !image) return json(400, { error: "Both 'prompt' and 'image' are required" });
-
     fal.config({ credentials: process.env.FAL_KEY });
 
     // fal accepts a base64 data URI directly as an image input.
     const result = await fal.subscribe(MODEL, {
-      input: { prompt, image_urls: [image] }
+      input: { prompt, image_urls: [image] },
+      abortSignal: ctl.signal,
+      onEnqueue: id => { requestId = id; }
     });
 
     const outUrl = result?.data?.images?.[0]?.url;
@@ -43,21 +76,20 @@ export const handler = async (event) => {
 
     // Fetch the result server-side and hand the browser base64, so the
     // <canvas> stays "clean" and the Download button keeps working.
-    const imgRes = await fetch(outUrl);
+    const imgRes = await fetch(outUrl, { signal: ctl.signal });
+    const type = imgRes.headers.get("content-type") || "";
+    if (!imgRes.ok || !type.startsWith("image/")) return json(502, { error: "Could not fetch the generated image" });
     const buf = Buffer.from(await imgRes.arrayBuffer());
-    const b64 = `data:image/png;base64,${buf.toString("base64")}`;
 
-    return json(200, { image: b64 });
+    return json(200, { image: `data:${type.split(";")[0]};base64,${buf.toString("base64")}` });
   } catch (err) {
+    if (ctl.signal.aborted) {
+      if (requestId) fal.queue.cancel(MODEL, { requestId }).catch(() => {});
+      return json(504, { error: "The AI took too long. Please try again." });
+    }
     console.error(err);
-    return json(500, { error: String(err?.message || err) });
+    return json(500, { error: "AI transform failed" });
+  } finally {
+    clearTimeout(timer);
   }
 };
-
-function json(statusCode, obj) {
-  return {
-    statusCode,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(obj)
-  };
-}

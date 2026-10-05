@@ -25,22 +25,36 @@
 <body>
   <div class="box">
     <div class="badge">✦</div>
-    <h1>You're Pro now</h1>
-    <p>Payment complete — real AI photo morphing is unlocked and ads are off. Head back and forge something.</p>
-    <a class="btn" href="index.html#forge">Start forging →</a>
-    <p class="small">A receipt is on its way to your email from Stripe.</p>
+    <h1 id="h">Finishing up…</h1>
+    <p id="msg">Confirming your payment with Stripe. One moment.</p>
+    <a class="btn" id="btn" href="index.html#forge" style="display:none">Start forging →</a>
+    <p class="small" id="small" style="display:none">A receipt is on its way to your email from Stripe.</p>
   </div>
 <script>
   // Verify the checkout server-side and store the signed session token that
-  // unlocks Pro. (Falls back to a local flag if the function isn't set up yet.)
+  // unlocks Pro. The session_id is removed from the address bar right away so
+  // it doesn't linger in history or get shared.
   (async function(){
+    const h=document.getElementById('h'), msg=document.getElementById('msg');
+    const sid=new URLSearchParams(location.search).get('session_id');
+    try{ history.replaceState(null,'',location.pathname); }catch(e){}
+    function fail(text){
+      h.textContent='Almost there';
+      msg.textContent=text+' If you were charged, use “Email me a login link” on the site with the email you paid with.';
+      document.getElementById('btn').textContent='Back to PFPFORGE →';
+      document.getElementById('btn').style.display='inline-block';
+    }
+    if(!sid) return fail('We couldn’t find your checkout details.');
     try{
-      const sid=new URLSearchParams(location.search).get('session_id');
-      if(!sid) return;
       const r=await fetch('/.netlify/functions/auth-session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid})});
       const d=await r.json();
-      if(d.token){ localStorage.setItem('pfp_token',d.token); localStorage.setItem('pfp_pro','1'); }
-    }catch(e){}
+      if(!d.token) return fail(d.error||'We couldn’t confirm your payment yet.');
+      try{ localStorage.setItem('pfp_token',d.token); localStorage.removeItem('pfp_pro'); }catch(e){}
+      h.textContent='You\'re Pro now';
+      msg.textContent='Payment complete — real AI photo morphing is unlocked and ads are off. Head back and forge something.';
+      document.getElementById('btn').style.display='inline-block';
+      document.getElementById('small').style.display='block';
+    }catch(e){ fail('Something went wrong confirming your payment.'); }
   })();
 </script>
 </body>

@@ -23,12 +23,13 @@
 (async function(){
   const h=document.getElementById('h'), msg=document.getElementById('msg');
   const m=location.hash.match(/token=([^&]+)/);
+  try{ history.replaceState(null,'',location.pathname); }catch(e){}   // don't leave the token in the URL
   if(!m){ h.textContent='Link not valid'; msg.textContent='Please request a new login link.'; return; }
   try{
     const r=await fetch('/.netlify/functions/auth-verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:decodeURIComponent(m[1])})});
     const d=await r.json();
     if(d.token){
-      try{ localStorage.setItem('pfp_token',d.token); localStorage.setItem('pfp_pro','1'); }catch(e){}
+      try{ localStorage.setItem('pfp_token',d.token); localStorage.removeItem('pfp_pro'); }catch(e){}
       h.textContent='You\'re in ✦'; msg.innerHTML='Pro unlocked. <a href="index.html#forge">Start forging →</a>';
       setTimeout(()=>location.href='index.html#forge',1200);
     }else{

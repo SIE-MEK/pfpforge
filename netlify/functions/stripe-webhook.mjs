@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import { setEntitlement } from "../../lib/auth.mjs";
+import { init, syncSubscription } from "../../lib/auth.mjs";
 
 /* Stripe webhook — the source of truth for who is a paying subscriber.
    Configure in Stripe Dashboard → Developers → Webhooks, pointing at
@@ -8,12 +8,18 @@ import { setEntitlement } from "../../lib/auth.mjs";
      customer.subscription.updated
      customer.subscription.deleted
      invoice.payment_failed
-   Copy the signing secret into the STRIPE_WEBHOOK_SECRET env var. */
+   Copy the signing secret into the STRIPE_WEBHOOK_SECRET env var.
+
+   Every event is treated as "this subscription changed": we re-read the
+   subscription from Stripe and store its live status, so retries and
+   out-of-order deliveries can't leave someone wrongly active. Subscriptions
+   for other prices on the same Stripe account are ignored. */
 
 export const handler = async (event) => {
   if (event.httpMethod !== "POST") return { statusCode: 405, body: "POST only" };
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!secret) return { statusCode: 500, body: "STRIPE_WEBHOOK_SECRET not set" };
+  init(event);
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
   const sig = event.headers["stripe-signature"];
@@ -22,22 +28,22 @@ export const handler = async (event) => {
 
   let evt;
   try { evt = stripe.webhooks.constructEvent(raw, sig, secret); }
-  catch (err) { return { statusCode: 400, body: `Webhook signature failed: ${err.message}` }; }
+  catch (err) { return { statusCode: 400, body: "Webhook signature failed" }; }
 
   try {
+    const obj = evt.data.object;
+    let subId = null, emailHint = null;
     if (evt.type === "checkout.session.completed") {
-      const s = evt.data.object;
-      const email = s.customer_details?.email || s.customer_email;
-      if (email) await setEntitlement(email, { status: "active", customerId: s.customer, subId: s.subscription });
-    } else if (evt.type === "customer.subscription.updated" || evt.type === "customer.subscription.deleted") {
-      const sub = evt.data.object;
-      const active = (sub.status === "active" || sub.status === "trialing") && evt.type !== "customer.subscription.deleted";
-      const cust = await stripe.customers.retrieve(sub.customer);
-      if (cust?.email) await setEntitlement(cust.email, { status: active ? "active" : "inactive", customerId: sub.customer, subId: sub.id });
+      if (obj.mode === "subscription") subId = obj.subscription;
+      emailHint = obj.customer_details?.email || obj.customer_email;
+    } else if (evt.type.startsWith("customer.subscription.")) {
+      subId = obj.id;
     } else if (evt.type === "invoice.payment_failed") {
-      const inv = evt.data.object;
-      const cust = await stripe.customers.retrieve(inv.customer);
-      if (cust?.email) await setEntitlement(cust.email, { status: "inactive", customerId: inv.customer });
+      subId = obj.subscription || obj.parent?.subscription_details?.subscription;
+    }
+    if (subId) {
+      const sub = await stripe.subscriptions.retrieve(typeof subId === "string" ? subId : subId.id);
+      await syncSubscription(stripe, sub, emailHint);
     }
   } catch (err) {
     console.error("webhook handler error", err);
