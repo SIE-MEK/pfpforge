@@ -192,13 +192,15 @@ Environment variables), in addition to the Stripe ones above:
   - Stripe Dashboard → Developers → Webhooks → **Add endpoint.**
   - URL: `https://YOURDOMAIN.com/.netlify/functions/stripe-webhook`
   - Events: `checkout.session.completed`, `customer.subscription.updated`,
-    `customer.subscription.deleted`, `invoice.payment_failed`.
+    `customer.subscription.deleted`, `invoice.payment_failed`,
+    `customer.updated`.
   - Save, copy the **Signing secret** (`whsec_…`) into `STRIPE_WEBHOOK_SECRET`.
   - Only subscriptions to your `STRIPE_PRICE_ID` grant Pro, so other products
     on the same Stripe account are safe to keep.
 
 **c. Netlify Blobs** needs no setup — it's built into Netlify Functions and
-turns on automatically when the code uses it.
+turns on automatically when the code uses it. It needs Node 22.12 or newer,
+which `netlify.toml` already selects.
 
 That's it. After deploy: a purchase unlocks Pro automatically, "Manage
 subscription" opens Stripe's portal, cancelling revokes AI access on the next

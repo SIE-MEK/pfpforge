@@ -758,7 +758,7 @@ if(upgradeBtn) upgradeBtn.onclick=async ()=>{
   if(upgradeBtn.dataset.act==='portal') return openPortal();
   upgradeBtn.disabled=true; upgradeBtn.textContent='Starting checkout…';
   try{
-    const res=await fetch('/.netlify/functions/create-checkout',{method:'POST'});
+    const res=await fetch('/.netlify/functions/create-checkout',{method:'POST',headers:getToken()?{'Authorization':'Bearer '+getToken()}:{}});
     const data=await res.json();
     if(data.url){ window.location=data.url; return; }                                  // hosted Checkout (shows card + PayPal)
     if(data.id && stripeObj){ await stripeObj.redirectToCheckout({sessionId:data.id}); return; }

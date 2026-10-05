@@ -34,7 +34,7 @@ so you can safely work through 1–4 first.
 - [ ] Stripe → Developers → Webhooks → Add endpoint
 - [ ] URL: `https://YOURDOMAIN.com/.netlify/functions/stripe-webhook`
 - [ ] Events: `checkout.session.completed`, `customer.subscription.updated`,
-      `customer.subscription.deleted`, `invoice.payment_failed`
+      `customer.subscription.deleted`, `invoice.payment_failed`, `customer.updated`
 - [ ] Copy the `whsec_…` signing secret into `STRIPE_WEBHOOK_SECRET`, redeploy.
 
 ## 5. Test the money flow IN TEST MODE (see TESTS.md)

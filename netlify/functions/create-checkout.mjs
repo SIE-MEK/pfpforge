@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import { siteUrl, json } from "../../lib/auth.mjs";
+import { sessionEmail, getEntitlement, siteUrl, json } from "../../lib/auth.mjs";
 
 /* ---------------------------------------------------------------------------
    PFPFORGE — Stripe Checkout session creator (Netlify Function)
@@ -16,8 +16,8 @@ import { siteUrl, json } from "../../lib/auth.mjs";
    The publishable key (pk_live_…) is NOT used here — it lives in index.html.
 --------------------------------------------------------------------------- */
 
-export const handler = async (event) => {
-  if (event.httpMethod !== "POST") return json(405, { error: "POST only" });
+export default async (req) => {
+  if (req.method !== "POST") return json(405, { error: "POST only" });
   if (!process.env.STRIPE_SECRET_KEY) return json(500, { error: "STRIPE_SECRET_KEY is not set on the server" });
   if (!process.env.STRIPE_PRICE_ID)   return json(500, { error: "STRIPE_PRICE_ID is not set on the server" });
 
@@ -25,10 +25,16 @@ export const handler = async (event) => {
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
     const origin = siteUrl();
 
+    // Returning subscriber (e.g. after a failed renewal): reuse their Stripe
+    // customer instead of creating a second one for the same email.
+    const email = sessionEmail(req);
+    const customer = email ? (await getEntitlement(email))?.customerId : null;
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
       allow_promotion_codes: true,
+      ...(customer ? { customer } : {}),
       success_url: `${origin}/success.html?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/index.html#pro`
     });

@@ -1,14 +1,13 @@
 import Stripe from "stripe";
-import { init, sessionEmail, getEntitlement, siteUrl, json } from "../../lib/auth.mjs";
+import { sessionEmail, getEntitlement, siteUrl, json } from "../../lib/auth.mjs";
 
 /* Returns a Stripe Customer Portal URL so a logged-in subscriber can update
    their card, view invoices, or cancel. Requires a full session token; a
    15-minute login-link token is not enough. */
 
-export const handler = async (event) => {
-  if (event.httpMethod !== "POST") return json(405, { error: "POST only" });
-  init(event);
-  const email = sessionEmail(event);
+export default async (req) => {
+  if (req.method !== "POST") return json(405, { error: "POST only" });
+  const email = sessionEmail(req);
   if (!email) return json(401, { error: "Not logged in" });
 
   const ent = await getEntitlement(email);

@@ -33,28 +33,37 @@
 <script>
   // Verify the checkout server-side and store the signed session token that
   // unlocks Pro. The session_id is removed from the address bar right away so
-  // it doesn't linger in history or get shared.
+  // it doesn't linger in history or get shared; it's kept in this tab's
+  // sessionStorage until we have a token, so Retry and reload still work.
   (async function(){
-    const h=document.getElementById('h'), msg=document.getElementById('msg');
-    const sid=new URLSearchParams(location.search).get('session_id');
-    try{ history.replaceState(null,'',location.pathname); }catch(e){}
-    function fail(text){
-      h.textContent='Almost there';
-      msg.textContent=text+' If you were charged, use “Email me a login link” on the site with the email you paid with.';
-      document.getElementById('btn').textContent='Back to PFPFORGE →';
-      document.getElementById('btn').style.display='inline-block';
-    }
-    if(!sid) return fail('We couldn’t find your checkout details.');
+    const h=document.getElementById('h'), msg=document.getElementById('msg'), btn=document.getElementById('btn');
+    let sid=new URLSearchParams(location.search).get('session_id');
     try{
-      const r=await fetch('/.netlify/functions/auth-session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid})});
-      const d=await r.json();
-      if(!d.token) return fail(d.error||'We couldn’t confirm your payment yet.');
-      try{ localStorage.setItem('pfp_token',d.token); localStorage.removeItem('pfp_pro'); }catch(e){}
-      h.textContent='You\'re Pro now';
-      msg.textContent='Payment complete — real AI photo morphing is unlocked and ads are off. Head back and forge something.';
-      document.getElementById('btn').style.display='inline-block';
-      document.getElementById('small').style.display='block';
-    }catch(e){ fail('Something went wrong confirming your payment.'); }
+      if(sid) sessionStorage.setItem('pfp_sid',sid); else sid=sessionStorage.getItem('pfp_sid');
+      history.replaceState(null,'',location.pathname);
+    }catch(e){}
+    function fail(text,canRetry){
+      h.textContent='Almost there';
+      msg.textContent=text+' If you were charged and this keeps failing, use “Email me a login link” on the site with the email you paid with, or reply to your Stripe receipt.';
+      btn.textContent=canRetry?'Try again':'Back to PFPFORGE →';
+      btn.style.display='inline-block';
+      if(canRetry){ btn.onclick=e=>{ e.preventDefault(); btn.style.display='none'; h.textContent='Finishing up…'; msg.textContent='Confirming your payment with Stripe. One moment.'; run(); }; }
+      else btn.onclick=null;
+    }
+    async function run(){
+      if(!sid) return fail('We couldn’t find your checkout details.',false);
+      try{
+        const r=await fetch('/.netlify/functions/auth-session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid})});
+        const d=await r.json();
+        if(!d.token) return fail(d.error||'We couldn’t confirm your payment yet.', r.status!==410 && r.status!==400);
+        try{ localStorage.setItem('pfp_token',d.token); localStorage.removeItem('pfp_pro'); sessionStorage.removeItem('pfp_sid'); }catch(e){}
+        h.textContent='You\'re Pro now';
+        msg.textContent='Payment complete — real AI photo morphing is unlocked and ads are off. Head back and forge something.';
+        btn.textContent='Start forging →'; btn.onclick=null; btn.style.display='inline-block';
+        document.getElementById('small').style.display='block';
+      }catch(e){ fail('Something went wrong confirming your payment.',true); }
+    }
+    run();
   })();
 </script>
 </body>

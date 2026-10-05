@@ -1,6 +1,10 @@
 [build]
   publish = "."
 
+[build.environment]
+  # @netlify/blobs needs Node 22.12+; Netlify runs functions on the build's Node version.
+  NODE_VERSION = "22"
+
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"

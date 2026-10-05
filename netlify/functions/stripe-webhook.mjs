@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import { init, syncSubscription } from "../../lib/auth.mjs";
+import { syncSubscription } from "../../lib/auth.mjs";
 
 /* Stripe webhook — the source of truth for who is a paying subscriber.
    Configure in Stripe Dashboard → Developers → Webhooks, pointing at
@@ -8,6 +8,7 @@ import { init, syncSubscription } from "../../lib/auth.mjs";
      customer.subscription.updated
      customer.subscription.deleted
      invoice.payment_failed
+     customer.updated
    Copy the signing secret into the STRIPE_WEBHOOK_SECRET env var.
 
    Every event is treated as "this subscription changed": we re-read the
@@ -15,39 +16,40 @@ import { init, syncSubscription } from "../../lib/auth.mjs";
    out-of-order deliveries can't leave someone wrongly active. Subscriptions
    for other prices on the same Stripe account are ignored. */
 
-export const handler = async (event) => {
-  if (event.httpMethod !== "POST") return { statusCode: 405, body: "POST only" };
+export default async (req) => {
+  if (req.method !== "POST") return new Response("POST only", { status: 405 });
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!secret) return { statusCode: 500, body: "STRIPE_WEBHOOK_SECRET not set" };
-  init(event);
+  if (!secret) return new Response("STRIPE_WEBHOOK_SECRET not set", { status: 500 });
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-  const sig = event.headers["stripe-signature"];
-  let raw = event.body;
-  if (event.isBase64Encoded) raw = Buffer.from(event.body, "base64").toString("utf8");
+  const raw = await req.text();
 
   let evt;
-  try { evt = stripe.webhooks.constructEvent(raw, sig, secret); }
-  catch (err) { return { statusCode: 400, body: "Webhook signature failed" }; }
+  try { evt = stripe.webhooks.constructEvent(raw, req.headers.get("stripe-signature"), secret); }
+  catch (err) { return new Response("Webhook signature failed", { status: 400 }); }
 
   try {
     const obj = evt.data.object;
-    let subId = null, emailHint = null;
+    let subIds = [], emailHint = null;
     if (evt.type === "checkout.session.completed") {
-      if (obj.mode === "subscription") subId = obj.subscription;
+      if (obj.mode === "subscription") subIds = [obj.subscription];
       emailHint = obj.customer_details?.email || obj.customer_email;
     } else if (evt.type.startsWith("customer.subscription.")) {
-      subId = obj.id;
+      subIds = [obj.id];
     } else if (evt.type === "invoice.payment_failed") {
-      subId = obj.subscription || obj.parent?.subscription_details?.subscription;
+      subIds = [obj.subscription || obj.parent?.subscription_details?.subscription];
+    } else if (evt.type === "customer.updated") {
+      // e.g. email changed in the billing portal: move Pro to the new address now
+      const subs = await stripe.subscriptions.list({ customer: obj.id, price: process.env.STRIPE_PRICE_ID, status: "all", limit: 20 });
+      subIds = subs.data.map(s => s.id);
     }
-    if (subId) {
-      const sub = await stripe.subscriptions.retrieve(typeof subId === "string" ? subId : subId.id);
+    for (const id of subIds.filter(Boolean)) {
+      const sub = await stripe.subscriptions.retrieve(typeof id === "string" ? id : id.id);
       await syncSubscription(stripe, sub, emailHint);
     }
   } catch (err) {
     console.error("webhook handler error", err);
-    return { statusCode: 500, body: "handler error" }; // let Stripe retry
+    return new Response("handler error", { status: 500 }); // let Stripe retry
   }
-  return { statusCode: 200, body: JSON.stringify({ received: true }) };
+  return Response.json({ received: true });
 };

@@ -1,4 +1,4 @@
-import { init, isActiveEmail, signLogin, normEmail, isEmail, siteUrl, hit, json } from "../../lib/auth.mjs";
+import { isActiveEmail, signLogin, normEmail, isEmail, siteUrl, hit, readJSON, json } from "../../lib/auth.mjs";
 
 /* "Already Pro on another device?" → emails a 15-minute login link.
    Email sending uses Resend (set RESEND_API_KEY). If it's not configured,
@@ -7,25 +7,24 @@ import { init, isActiveEmail, signLogin, normEmail, isEmail, siteUrl, hit, json 
 
    Every request gets the same 200 response, padded to the same minimum
    duration, so neither the body nor the timing reveals who subscribes.
-   Rate-limited per email and per IP to stop inbox flooding. */
+   Rate-limited per IP, and per email to stop inbox flooding. (Someone who
+   knows a subscriber's email can use up that email's hourly allowance; the
+   subscriber can still unlock on the device they paid on.) */
 
 const MIN_MS = 1500;
 const HOUR = 60 * 60 * 1000;
 
-export const handler = async (event) => {
-  if (event.httpMethod !== "POST") return json(405, { error: "POST only" });
+export default async (req, context) => {
+  if (req.method !== "POST") return json(405, { error: "POST only" });
   const started = Date.now();
-  init(event);
+
+  const email = normEmail((await readJSON(req)).email);
+  if (!isEmail(email)) return json(400, { error: "Please enter a valid email" });
 
   try {
-    const { email: raw } = JSON.parse(event.body || "{}");
-    const email = normEmail(raw);
-    if (!isEmail(email)) return json(400, { error: "Please enter a valid email" });
-
-    const ip = event.headers["x-nf-client-connection-ip"] || event.headers["client-ip"] || "unknown";
-    const allowed = (await hit("login-ip", ip, 10, HOUR)) && (await hit("login-email", email, 3, HOUR));
-
-    if (allowed && process.env.RESEND_API_KEY && (await isActiveEmail(email))) {
+    const ip = context?.ip || "unknown";
+    if ((await hit("login-ip", ip, 10, HOUR)) && process.env.RESEND_API_KEY &&
+        (await isActiveEmail(email)) && (await hit("login-email", email, 5, HOUR))) {
       const link = `${siteUrl()}/auth.html#token=${encodeURIComponent(signLogin(email))}`;
       const r = await fetch("https://api.resend.com/emails", {
         method: "POST",

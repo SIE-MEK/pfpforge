@@ -16,26 +16,34 @@
 </head>
 <body>
   <div>
-    <h1 id="h">Signing you in…</h1>
-    <p id="msg">One moment.</p>
+    <h1 id="h">Unlock Pro on this device</h1>
+    <p id="msg">Tap the button to finish signing in.</p>
+    <p><button id="go" style="display:none;margin-top:20px;font-family:'Unbounded',sans-serif;font-weight:800;font-size:1rem;padding:14px 28px;border:0;border-radius:14px;color:#fff;cursor:pointer;background:linear-gradient(110deg,#ff3d9a,#9b5cff 50%,#33e6ff)">Unlock Pro →</button></p>
   </div>
 <script>
-(async function(){
-  const h=document.getElementById('h'), msg=document.getElementById('msg');
+// The link only works once, so we wait for a tap before using it: email
+// security scanners that open links automatically won't burn it.
+(function(){
+  const h=document.getElementById('h'), msg=document.getElementById('msg'), go=document.getElementById('go');
   const m=location.hash.match(/token=([^&]+)/);
   try{ history.replaceState(null,'',location.pathname); }catch(e){}   // don't leave the token in the URL
   if(!m){ h.textContent='Link not valid'; msg.textContent='Please request a new login link.'; return; }
-  try{
-    const r=await fetch('/.netlify/functions/auth-verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:decodeURIComponent(m[1])})});
-    const d=await r.json();
-    if(d.token){
-      try{ localStorage.setItem('pfp_token',d.token); localStorage.removeItem('pfp_pro'); }catch(e){}
-      h.textContent='You\'re in ✦'; msg.innerHTML='Pro unlocked. <a href="index.html#forge">Start forging →</a>';
-      setTimeout(()=>location.href='index.html#forge',1200);
-    }else{
-      h.textContent='Couldn\'t sign you in'; msg.textContent=d.error||'The link may have expired — request a new one.';
-    }
-  }catch(e){ h.textContent='Something went wrong'; msg.textContent='Please try the link again.'; }
+  const token=decodeURIComponent(m[1]);
+  go.style.display='inline-block';
+  go.onclick=async ()=>{
+    go.disabled=true; go.style.display='none'; h.textContent='Signing you in…'; msg.textContent='One moment.';
+    try{
+      const r=await fetch('/.netlify/functions/auth-verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});
+      const d=await r.json();
+      if(d.token){
+        try{ localStorage.setItem('pfp_token',d.token); localStorage.removeItem('pfp_pro'); }catch(e){}
+        h.textContent='You\'re in ✦'; msg.innerHTML='Pro unlocked. <a href="index.html#forge">Start forging →</a>';
+        setTimeout(()=>location.href='index.html#forge',1200);
+      }else{
+        h.textContent='Couldn\'t sign you in'; msg.textContent=d.error||'The link may have expired — request a new one.';
+      }
+    }catch(e){ h.textContent='Something went wrong'; msg.textContent='Please request a new login link from the site.'; }
+  };
 })();
 </script>
 </body>

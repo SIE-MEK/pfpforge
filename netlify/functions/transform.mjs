@@ -1,5 +1,5 @@
 import { fal } from "@fal-ai/client";
-import { init, sessionEmail, isActiveEmail, hit, json } from "../../lib/auth.mjs";
+import { sessionEmail, isActiveEmail, hit, readJSON, json } from "../../lib/auth.mjs";
 
 /* ---------------------------------------------------------------------------
    PFPFORGE — AI transform proxy (Netlify Function)
@@ -26,21 +26,18 @@ const MAX_IMAGE_CHARS = 3_000_000;   // ~2.2 MB image; the client sends a 640px 
 const MAX_PROMPT_CHARS = 1000;
 const DAY = 24 * 60 * 60 * 1000;
 
-export const handler = async (event) => {
-  if (event.httpMethod !== "POST") return json(405, { error: "POST only" });
+export default async (req) => {
+  if (req.method !== "POST") return json(405, { error: "POST only" });
   if (process.env.AI_ENABLED === "false") return json(503, { error: "AI mode is temporarily off" });
-  init(event);
 
   // SPEND GATE: only an active, verified subscriber can trigger a paid AI call.
   // This is enforced on the server so it can't be bypassed from the browser.
-  const email = sessionEmail(event);
+  const email = sessionEmail(req);
   if (!email) return json(401, { error: "Sign in / subscribe to use AI mode" });
   if (!(await isActiveEmail(email))) return json(403, { error: "No active Pro subscription" });
   if (!process.env.FAL_KEY) return json(500, { error: "AI is not configured on the server" });
 
-  let prompt, image;
-  try { ({ prompt, image } = JSON.parse(event.body || "{}")); }
-  catch (e) { return json(400, { error: "Invalid JSON" }); }
+  const { prompt, image } = await readJSON(req);
   if (typeof prompt !== "string" || !prompt.trim() || prompt.length > MAX_PROMPT_CHARS) {
     return json(400, { error: "A prompt of up to 1000 characters is required" });
   }
@@ -54,8 +51,9 @@ export const handler = async (event) => {
     return json(429, { error: `Daily AI limit reached (${limit}). It resets at midnight UTC.` });
   }
 
-  // Stop waiting before Netlify kills the function, and cancel the fal job so
-  // we're not billed for a result nobody will receive.
+  // Stop waiting before Netlify kills the function, so the browser gets a
+  // clean 504 instead of a crash. We also ask fal to cancel; that only saves
+  // money if the job hasn't started yet (fal can't stop a running job).
   const budgetMs = (Number(process.env.FUNCTION_TIMEOUT_S) || 10) * 1000 - 2500;
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), Math.max(budgetMs, 3000));
@@ -84,7 +82,10 @@ export const handler = async (event) => {
     return json(200, { image: `data:${type.split(";")[0]};base64,${buf.toString("base64")}` });
   } catch (err) {
     if (ctl.signal.aborted) {
-      if (requestId) fal.queue.cancel(MODEL, { requestId }).catch(() => {});
+      if (requestId) {
+        // Awaited (briefly): after we return, Netlify may freeze the process.
+        await Promise.race([fal.queue.cancel(MODEL, { requestId }).catch(() => {}), new Promise(r => setTimeout(r, 1000))]);
+      }
       return json(504, { error: "The AI took too long. Please try again." });
     }
     console.error(err);
