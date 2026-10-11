@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import { setEntitlement } from "../../lib/auth.mjs";
+import { setEntitlement, connect } from "../../lib/auth.mjs";
 
 /* Stripe webhook — the source of truth for who is a paying subscriber.
    Configure in Stripe Dashboard → Developers → Webhooks, pointing at
@@ -11,6 +11,7 @@ import { setEntitlement } from "../../lib/auth.mjs";
    Copy the signing secret into the STRIPE_WEBHOOK_SECRET env var. */
 
 export const handler = async (event) => {
+  connect(event);
   if (event.httpMethod !== "POST") return { statusCode: 405, body: "POST only" };
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!secret) return { statusCode: 500, body: "STRIPE_WEBHOOK_SECRET not set" };

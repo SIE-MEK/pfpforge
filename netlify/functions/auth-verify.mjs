@@ -1,9 +1,10 @@
-import { verify, signSession, isActiveEmail, json } from "../../lib/auth.mjs";
+import { verify, signSession, isActiveEmail, json, connect } from "../../lib/auth.mjs";
 
 /* Validates the 15-minute login token from the email link and, if the email
    still has an active subscription, returns a 30-day session token. */
 
 export const handler = async (event) => {
+  connect(event);
   if (event.httpMethod !== "POST") return json(405, { error: "POST only" });
   try {
     const { token } = JSON.parse(event.body || "{}");

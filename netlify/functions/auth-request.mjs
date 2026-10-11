@@ -1,4 +1,4 @@
-import { isActiveEmail, signLogin, json } from "../../lib/auth.mjs";
+import { isActiveEmail, signLogin, json, connect, siteOrigin } from "../../lib/auth.mjs";
 
 /* "Already Pro on another device?" → emails a 15-minute login link.
    Email sending uses Resend (set RESEND_API_KEY). If it's not configured,
@@ -6,6 +6,7 @@ import { isActiveEmail, signLogin, json } from "../../lib/auth.mjs";
    email goes out. The purchase-device unlock works without this. */
 
 export const handler = async (event) => {
+  connect(event);
   if (event.httpMethod !== "POST") return json(405, { error: "POST only" });
   try {
     const { email } = JSON.parse(event.body || "{}");
@@ -13,7 +14,7 @@ export const handler = async (event) => {
 
     const active = await isActiveEmail(email);
     if (active && process.env.RESEND_API_KEY) {
-      const origin = event.headers.origin || `https://${event.headers.host}`;
+      const origin = siteOrigin(event);
       const link = `${origin}/auth.html#token=${encodeURIComponent(signLogin(email))}`;
       await fetch("https://api.resend.com/emails", {
         method: "POST",

@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import { siteOrigin } from "../../lib/auth.mjs";
 
 /* ---------------------------------------------------------------------------
    PFPFORGE — Stripe Checkout session creator (Netlify Function)
@@ -21,7 +22,7 @@ export const handler = async (event) => {
 
   try {
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-    const origin = event.headers.origin || `https://${event.headers.host}`;
+    const origin = siteOrigin(event);
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",

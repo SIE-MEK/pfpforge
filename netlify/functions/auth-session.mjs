@@ -1,11 +1,12 @@
 import Stripe from "stripe";
-import { signSession, setEntitlement, json } from "../../lib/auth.mjs";
+import { signSession, setEntitlement, json, connect } from "../../lib/auth.mjs";
 
 /* Called by success.html after checkout. Verifies the session_id with Stripe
    (so it can't be faked), records the entitlement, and returns a signed
    session token that unlocks Pro on this device. */
 
 export const handler = async (event) => {
+  connect(event);
   if (event.httpMethod !== "POST") return json(405, { error: "POST only" });
   if (!process.env.SESSION_SECRET) return json(500, { error: "SESSION_SECRET not set" });
 

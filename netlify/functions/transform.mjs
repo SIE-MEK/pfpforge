@@ -1,5 +1,5 @@
 import { fal } from "@fal-ai/client";
-import { bearer, verify, isActiveEmail } from "../../lib/auth.mjs";
+import { bearer, verify, isActiveEmail, connect } from "../../lib/auth.mjs";
 
 /* ---------------------------------------------------------------------------
    PFPFORGE — AI transform proxy (Netlify Function)
@@ -18,6 +18,7 @@ import { bearer, verify, isActiveEmail } from "../../lib/auth.mjs";
 const MODEL = "fal-ai/nano-banana-2/edit";
 
 export const handler = async (event) => {
+  connect(event);
   if (event.httpMethod !== "POST") return json(405, { error: "POST only" });
   if (!process.env.FAL_KEY)        return json(500, { error: "FAL_KEY env var is not set on the server" });
 
