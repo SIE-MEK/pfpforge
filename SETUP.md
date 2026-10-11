@@ -10,6 +10,11 @@ pfp-generator/
 ├─ package.json                    ← lists dependencies
 ├─ sitemap.xml                     ← list of pages for Google (edit the domain)
 ├─ robots.txt                      ← tells crawlers where the sitemap is (edit the domain)
+├─ privacy.html / terms.html       ← legal pages (AdSense + Stripe expect these)
+├─ 404.html                        ← "page not found"
+├─ netlify.toml                    ← Netlify config: functions, security headers,
+│                                     hides docs/source from the public site
+├─ scripts/set-domain.mjs          ← fills in your domain everywhere in one go
 ├─ SETUP.md                        ← this file
 ├─ CHECKLIST.md                    ← tick-through launch steps
 ├─ TESTS.md                        ← verify the money flow before going live
@@ -99,9 +104,10 @@ which is exactly what lifts AdSense earnings per visitor.
 
 To switch it on:
 
-1. **Set your domain.** Find-and-replace `YOURDOMAIN.com` with your real domain
-   in three files: `sitemap.xml`, `robots.txt`, and the `<link rel="canonical">`
-   + `og:` tags at the top of each page in `/blog/` and `index.html`.
+1. **Set your domain.** Run `node scripts/set-domain.mjs yourdomain.com you@youremail.com`.
+   It replaces `YOURDOMAIN.com` in `sitemap.xml`, `robots.txt`, the
+   `<link rel="canonical">` + `og:` tags on every page, and the contact email in
+   `privacy.html` / `terms.html`. Commit and push the result.
 2. **Deploy**, then in **Google Search Console** add your site and submit
    `https://YOURDOMAIN.com/sitemap.xml` under Indexing → Sitemaps.
 3. **Keep adding articles.** Each new guide targets more search terms. Copy any

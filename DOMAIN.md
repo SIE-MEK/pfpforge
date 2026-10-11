@@ -50,8 +50,8 @@ You'll need that exact name in step 3.
 
 1. **Stripe webhook URL** → set it to
    `https://yourdomain.com/.netlify/functions/stripe-webhook`
-2. **Domain references** → replace `YOURDOMAIN.com` in `sitemap.xml`,
-   `robots.txt`, and the canonical + `og:` tags in `index.html` and `/blog/*`.
+2. **Domain references** → run `node scripts/set-domain.mjs yourdomain.com you@youremail.com`
+   (replaces `YOURDOMAIN.com` everywhere on the site), then commit and push.
 
 Your functions read the live host automatically, so checkout success/cancel
 pages and PayPal use the real domain with no code change.

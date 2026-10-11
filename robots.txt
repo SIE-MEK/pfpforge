@@ -1,0 +1,8 @@
+# Replace YOURDOMAIN.com with your real domain.
+User-agent: *
+Allow: /
+Disallow: /.netlify/
+Disallow: /success.html
+Disallow: /auth.html
+
+Sitemap: https://YOURDOMAIN.com/sitemap.xml

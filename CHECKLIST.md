@@ -13,9 +13,10 @@ so you can safely work through 1–4 first.
 - [ ] Blog loads at `/blog/` and the "Guides" nav link works.
 
 ## 2. Set your domain everywhere
-- [ ] Find-and-replace `YOURDOMAIN.com` with your real domain in: `sitemap.xml`,
-      `robots.txt`, and the canonical + `og:` tags in `index.html` and each
-      file in `/blog/`.
+- [ ] Run `node scripts/set-domain.mjs yourdomain.com you@youremail.com` (your real
+      domain and the contact email for the Privacy/Terms pages), then commit and push.
+      This fills in `sitemap.xml`, `robots.txt`, the canonical + `og:` tags on every
+      page, and the contact address in `privacy.html` / `terms.html`.
 - [ ] Submit `https://YOURDOMAIN.com/sitemap.xml` in Google Search Console.
 
 ## 3. Environment variables (Netlify → Site configuration → Environment variables)
@@ -34,6 +35,9 @@ so you can safely work through 1–4 first.
 - [ ] Events: `checkout.session.completed`, `customer.subscription.updated`,
       `customer.subscription.deleted`, `invoice.payment_failed`
 - [ ] Copy the `whsec_…` signing secret into `STRIPE_WEBHOOK_SECRET`, redeploy.
+- [ ] Stripe → Settings → Billing → **Customer portal** → turn on "cancel
+      subscriptions" and **Save** (needed once in test mode and once in live mode,
+      or "Manage subscription" fails).
 
 ## 5. Test the money flow IN TEST MODE (see TESTS.md)
 - [ ] Run every check in TESTS.md and confirm each passes.
@@ -52,7 +56,11 @@ so you can safely work through 1–4 first.
 ## 7. AdSense
 - [ ] Add your `ca-pub-…` verification script in `<head>` (see SETUP.md).
 - [ ] Paste your ad-unit code into the `<!-- AD UNIT -->` and `.ad-slot` spots.
+- [ ] Paste the same `ca-pub-…` script into the commented AdSense line in the
+      `<head>` of each `/blog/` page too.
 - [ ] Verify + request review in AdSense.
+- [ ] Visitors from the EU/UK need a Google-certified consent banner: in AdSense →
+      Privacy & messaging, turn on the free European regulations message.
 
 ## 8. Traffic
 - [ ] Make your first Pinterest video pins in Kittl.
