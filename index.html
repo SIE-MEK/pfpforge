@@ -497,7 +497,7 @@ let mode='transform', aes='gothic', vibe='edgy', gender='neutral', srcImg=null, 
    Leave USE_AI=false and the site works fully on in-browser filters (free).
    Flip to true AFTER you deploy the Netlify function (see SETUP.md):
    it proxies fal.ai so your API key stays secret on the server.        */
-const USE_AI = false;
+const USE_AI = true;
 const AI_ENDPOINT = '/.netlify/functions/transform';
 
 function buildPrompt(){
@@ -728,7 +728,11 @@ document.getElementById('decline').onclick=()=>close('essential');
    Pro is verified by the server (signed token + live subscription check),
    so editing browser storage can't fake it and can't trigger paid AI calls.
    To test first, swap this for pk_test_ and use test keys server-side. */
-const STRIPE_PK = 'pk_live_51T7ikg1FLeiBj61rKrom37n2myjkHZgg8AI20TbjPDe6XKY1KEaSY0hnVzNkBO7vtZ7fcnVXO3oDVkl0crPdXNJ500cxons4yb';
+/* TEST MODE: checkout uses Stripe test keys (card 4242 4242 4242 4242).
+   To go live, swap in the live key below AND set the live sk_/price_/whsec_
+   values in Netlify at the same time; mixing test and live keys breaks checkout.
+   Live key: 'pk_live_51T7ikg1FLeiBj61rKrom37n2myjkHZgg8AI20TbjPDe6XKY1KEaSY0hnVzNkBO7vtZ7fcnVXO3oDVkl0crPdXNJ500cxons4yb' */
+const STRIPE_PK = 'pk_test_51T7ikg1FLeiBj61r8Kz4hEI43SO8tAQeaw0zQCUY3MGMF2WoavE6vhCcFarrjIq2MoLMGccwDwpEiy90kCLjmu6l00euKP58cY';
 let stripeObj=null; try{ if(window.Stripe) stripeObj=Stripe(STRIPE_PK); }catch(e){}
 
 let proState=false;
